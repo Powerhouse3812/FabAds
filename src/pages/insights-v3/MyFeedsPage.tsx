@@ -7,6 +7,7 @@ import { Link } from "react-router-dom";
 import { hasAnyPrefs } from "@/lib/insights-v3/selectors";
 import { useMyFeedsAds, useUserPrefs } from "@/lib/insights-v3/stores";
 import { INSIGHTS_ROUTES } from "@/lib/insights-v3/types";
+import { InsightsSearch } from "@/components/insights-v3/search/InsightsSearch";
 import { InsightsOverlayHost } from "@/components/insights-v3/InsightsOverlayHost";
 import { AdsMarketView } from "@/components/insights-v3/discover/AdsMarketView";
 import { MyFeedsIdentity } from "@/components/insights-v3/discover/MyFeedsIdentity";
@@ -47,6 +48,7 @@ export default function MyFeedsPage() {
         sourceEmpty={!hasAnyPrefs(prefs)}
         emptyState={<NothingFollowed />}
         headerSlot={<MyFeedsIdentity prefs={prefs} />}
+        headerActions={<InsightsSearch />}
       />
       <InsightsOverlayHost />
     </>

@@ -11,7 +11,8 @@
  * groups are built from the scoped ads, the union is applied only to the list.
  */
 import { useCallback, useMemo, useState, type ReactNode } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
+import { X } from "lucide-react";
 import { MODULE_NOW } from "@/lib/insights-v3/data";
 import {
   DISCOVER_GROUP_KEYS,
@@ -33,6 +34,7 @@ import {
 import { useLastVisitAt, useUserPrefs } from "@/lib/insights-v3/stores";
 import { AD_SORT_LABEL, DEFAULT_SCOPE, PERIOD_OPTIONS, QP, type Ad, type AdSort, type PeriodKey, type Scope } from "@/lib/insights-v3/types";
 import {
+  TruncatedText,
   EmptyResults,
   EmptyState,
   GridSkeleton,
@@ -48,9 +50,11 @@ import {
   useListSort,
   useSelectedTags,
 } from "@/components/insights-v3/shared";
+import { SEARCH_QUERY_PARAM } from "@/components/insights-v3/search/InsightsSearch";
 import { AdGrid } from "./AdGrid";
 import { RisingScaling } from "./RisingScaling";
 import { TrendingTags } from "./TrendingTags";
+import { filterAdsByQuery } from "./textQuery";
 
 export const PAGE_SIZE = 24;
 const AD_SORTS = Object.keys(AD_SORT_LABEL) as AdSort[];
@@ -86,7 +90,9 @@ export function AdsMarketView({
   headerSlot,
   headerActions,
 }: AdsMarketViewProps) {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+  const query = (searchParams.get(SEARCH_QUERY_PARAM) ?? "").trim();
   const stateParam = searchParams.get(QP.state);
   const loading = stateParam === "loading";
   const forcedEmpty = stateParam === "empty";
@@ -102,7 +108,8 @@ export function AdsMarketView({
     () => (showPrefsToggle ? urlScope : { ...urlScope, myPrefsOnly: false }),
     [urlScope, showPrefsToggle],
   );
-  const source = useMemo(() => (forcedEmpty ? [] : sourceAds), [forcedEmpty, sourceAds]);
+  // The text search narrows the SOURCE, before scope and tags, so KPIs, groups and totals all follow it.
+  const source = useMemo(() => (forcedEmpty ? [] : filterAdsByQuery(sourceAds, query)), [forcedEmpty, sourceAds, query]);
   const ctx = useMemo<SelectorCtx>(() => ({ now: MODULE_NOW, lastVisitAt, prefs }), [lastVisitAt, prefs]);
 
   /* scope-derived data (none of it depends on the selected tags) */
@@ -139,7 +146,7 @@ export function AdsMarketView({
   const sorted = useMemo(() => sortAds(filtered, sort), [filtered, sort]);
 
   /* paging: 24 at a time, reset whenever the result set changes */
-  const resetKey = `${scope.industry}|${scope.category}|${scope.period}|${scope.myPrefsOnly}|${JSON.stringify(tags.selected)}|${sort}`;
+  const resetKey = `${query}|${scope.industry}|${scope.category}|${scope.period}|${scope.myPrefsOnly}|${JSON.stringify(tags.selected)}|${sort}`;
   const [pager, setPager] = useState({ key: resetKey, n: PAGE_SIZE });
   const shown = pager.key === resetKey ? pager.n : PAGE_SIZE;
   const total = sorted.length;
@@ -150,6 +157,21 @@ export function AdsMarketView({
   const onReachEnd = useCallback(() => {
     if (shown < total) loadMore();
   }, [shown, total, loadMore]);
+
+  /** One write for both, so the two clears can't clobber each other. */
+  const clearSearch = useCallback(
+    (alsoTags: boolean) =>
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.delete(SEARCH_QUERY_PARAM);
+          if (alsoTags) Array.from(next.keys()).filter((k) => k.startsWith(QP.tagPrefix)).forEach((k) => next.delete(k));
+          return next;
+        },
+        { replace: true, state: location.state },
+      ),
+    [setSearchParams, location.state],
+  );
 
   const noSource = !loading && (sourceEmpty || forcedEmpty) && !!emptyState;
   const noAdsInScope = !loading && !noSource && scoped.length === 0;
@@ -199,22 +221,56 @@ export function AdsMarketView({
       />
     );
 
+  const searchChip = query ? (
+    <button
+      type="button"
+      onClick={() => clearSearch(false)}
+      aria-label={`Remove search: ${query}`}
+      className="inline-flex h-7 max-w-full items-center gap-1 self-start rounded-full border border-primary/30 bg-primary/10 pl-2.5 pr-1.5 text-xs text-primary-text hover:bg-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <span className="shrink-0 text-muted-foreground">Search:</span>
+      <TruncatedText text={`“${query}”`} className="max-w-[220px] font-medium" focusable={false} />
+      <X className="h-3 w-3 shrink-0" aria-hidden="true" />
+    </button>
+  ) : null;
+
   const chips =
-    loading || noSource || noAdsInScope ? undefined : (
-      <SelectedChips
-        selected={tags.selected}
-        groups={groups}
-        onRemove={tags.toggle}
-        onClearAll={tags.clearAll}
-        total={total}
-        noun="ads"
-        rightSlot={<SortControl value={sort} options={AD_SORT_LABEL} onChange={setSort} />}
-      />
+    loading || noSource ? undefined : (
+      <div className="flex flex-col gap-2">
+        {searchChip}
+        {!noAdsInScope && (
+          <SelectedChips
+            selected={tags.selected}
+            groups={groups}
+            onRemove={tags.toggle}
+            onClearAll={tags.clearAll}
+            total={total}
+            noun="ads"
+            rightSlot={<SortControl value={sort} options={AD_SORT_LABEL} onChange={setSort} />}
+          />
+        )}
+      </div>
     );
 
   let list: ReactNode;
   if (loading) list = <GridSkeleton count={8} />;
   else if (noSource) list = emptyState;
+  else if (noAdsInScope && query)
+    list = (
+      <EmptyState
+        title={`No ads match “${query}” in this scope`}
+        body="Search narrows the ads before the scope bar and tags apply. Clear the search, or widen the scope, to see more."
+        action={
+          <button
+            type="button"
+            onClick={() => clearSearch(true)}
+            className="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          >
+            Clear search
+          </button>
+        }
+      />
+    );
   else if (noAdsInScope)
     list = (
       <EmptyState
@@ -235,7 +291,7 @@ export function AdsMarketView({
         }
       />
     );
-  else if (noMatches) list = <EmptyResults noun="ads" onClear={tags.clearAll} />;
+  else if (noMatches) list = <EmptyResults noun="ads" onClear={() => clearSearch(true)} />;
   else list = <AdGrid ads={sorted.slice(0, shown)} scopedAds={scoped} total={total} onLoadMore={loadMore} />;
 
   return (
