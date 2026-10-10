@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
+import { getAds } from "@/lib/insights-v3/data";
+import { filterAdsByQuery } from "./textQuery";
 import DiscoverPage from "@/pages/insights-v3/DiscoverPage";
 import MyFeedsPage from "@/pages/insights-v3/MyFeedsPage";
 import {
@@ -141,6 +143,60 @@ describe("Discover page", () => {
     renderAt(<DiscoverPage />, "/industry-insights/discover");
     fireEvent.click(screen.getByRole("button", { name: "Load more" }));
     expect(adCards().length).toBe(48);
+  });
+});
+
+describe("text search (?q=)", () => {
+  const word = (getAds().find((a) => a.analysis.keywords.length)?.analysis.keywords[0] ?? "insurance").toLowerCase();
+  const expected = filterAdsByQuery(getAds(), word).length;
+  const optionCounts = (name: string) =>
+    within(screen.getByRole("region", { name }))
+      .getAllByRole("button")
+      .map((b) => Number(/, ([\d,]+) ads/.exec(b.getAttribute("aria-label") ?? "")?.[1]?.replace(/,/g, "") ?? 0));
+
+  it("narrows the total, the KPIs and the group counts, and the header search is mounted", () => {
+    expect(expected).toBeGreaterThan(0);
+    expect(expected).toBeLessThan(800);
+    const plain = renderAt(<DiscoverPage />, "/industry-insights/discover");
+    const hookBefore = optionCounts("Hook style").reduce((a, b) => a + b, 0);
+    plain.unmount();
+
+    const { container } = renderAt(<DiscoverPage />, `/industry-insights/discover?q=${encodeURIComponent(word)}`);
+    expect(screen.getByLabelText("Search Industry Insights V2")).toBeInTheDocument();
+    expect(Number(total(container).replace(/,/g, ""))).toBe(expected);
+    expect(optionCounts("Hook style").reduce((a, b) => a + b, 0)).toBeLessThan(hookBefore);
+    expect(screen.getByRole("button", { name: `Remove search: ${word}` })).toBeInTheDocument();
+  });
+
+  it("selecting a tag under a search still changes only the total", () => {
+    const { container } = renderAt(<DiscoverPage />, `/industry-insights/discover?q=${encodeURIComponent(word)}`);
+    const angleBefore = optionCounts("Angle");
+    const first = within(screen.getByRole("region", { name: "Hook style" })).getAllByRole("button", { pressed: false })[0];
+    fireEvent.click(first);
+    expect(Number(total(container).replace(/,/g, ""))).toBeLessThanOrEqual(expected);
+    expect(optionCounts("Angle")).toEqual(angleBefore);
+  });
+
+  it("removing the search chip clears q and restores the full total", () => {
+    const { container } = renderAt(<DiscoverPage />, `/industry-insights/discover?q=${encodeURIComponent(word)}`);
+    fireEvent.click(screen.getByRole("button", { name: `Remove search: ${word}` }));
+    expect(screen.queryByRole("button", { name: /^Remove search:/ })).toBeNull();
+    expect(total(container)).toBe("800");
+  });
+
+  it("a search with no hits offers one click to clear it", () => {
+    renderAt(<DiscoverPage />, "/industry-insights/discover?q=zzqxjv");
+    expect(screen.getByText(/No ads match “zzqxjv” in this scope/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
+    expect(adCards().length).toBe(24);
+  });
+
+  it("works on My Feeds too, and the no-match path clears search and tags together", () => {
+    renderAt(<MyFeedsPage />, "/industry-insights/feeds?q=zzqxjv&f_country=us");
+    expect(screen.getByText(/No ads match “zzqxjv”/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
+    expect(adCards().length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: /^Remove (search|Country)/ })).toBeNull();
   });
 });
 
