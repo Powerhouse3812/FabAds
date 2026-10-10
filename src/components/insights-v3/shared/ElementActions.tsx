@@ -1,14 +1,15 @@
 import type { ReactNode } from "react";
-import { ELEMENT_ACTIONS, SAVABLE_LABEL, type DownloadFile, type SavedItemRef } from "@/lib/insights-v3/types";
+import { ELEMENT_ACTIONS, SAVABLE_LABEL, type SavedItemRef } from "@/lib/insights-v3/types";
 import { cn } from "@/lib/utils";
 import { DownloadButton } from "./DownloadButton";
+import type { DownloadBuild } from "./download";
 import { SaveButton } from "./SaveButton";
 
 export interface ElementActionsProps {
   target: SavedItemRef;
   savedCount?: number;
-  /** `buildDownload(ref)` from the data layer, bound to `target`. */
-  buildDownload?: () => DownloadFile;
+  /** `buildDownload(ref)` / `buildDownloads(ref)` from the data layer, bound to `target`. */
+  buildDownload?: () => DownloadBuild;
   /** Rendered only when ELEMENT_ACTIONS[type].useInGenie. */
   genieSlot?: ReactNode;
   className?: string;

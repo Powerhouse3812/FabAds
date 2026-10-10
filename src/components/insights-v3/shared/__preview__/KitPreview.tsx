@@ -381,6 +381,15 @@ export default function KitPreview() {
                   return { kind: "text", filename: "curiosity-question.md", mime: "text/markdown", content: "# Curiosity question\n\nA hook style that opens with an unanswered question.\n" };
                 }}
               />
+              <DownloadButton
+                label="Ad: 2 files"
+                variant="button"
+                build={() => [
+                  { kind: "text", filename: "ad-copy.txt", mime: "text/plain", content: "Headline\nPrimary text\n" },
+                  { kind: "text", filename: "ad-analysis.txt", mime: "text/plain", content: "Hook: curiosity question\n" },
+                ]}
+              />
+              <DownloadButton label="Returns null" variant="button" build={() => null} />
               <DownloadButton build={() => { throw new Error("nope"); }} ariaLabel="Download (fails, shows error toast)" />
               <span className="text-xs text-muted-foreground">downloads: {lastSave}</span>
             </Row>
