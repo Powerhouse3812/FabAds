@@ -3,10 +3,10 @@
  * The Discover layout as-is over a narrower source: competitors the user marked,
  * pages they follow and industries they follow. No "My preferences only" switch.
  */
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { hasAnyPrefs } from "@/lib/insights-v3/selectors";
 import { useMyFeedsAds, useUserPrefs } from "@/lib/insights-v3/stores";
-import { INSIGHTS_ROUTES } from "@/lib/insights-v3/types";
+import { INSIGHTS_ROUTES, QP } from "@/lib/insights-v3/types";
 import { InsightsSearch } from "@/components/insights-v3/search/InsightsSearch";
 import { InsightsOverlayHost } from "@/components/insights-v3/InsightsOverlayHost";
 import { AdsMarketView } from "@/components/insights-v3/discover/AdsMarketView";
@@ -38,6 +38,8 @@ function NothingFollowed() {
 export default function MyFeedsPage() {
   const prefs = useUserPrefs();
   const feedAds = useMyFeedsAds();
+  const [searchParams] = useSearchParams();
+  const nothingFeeds = !hasAnyPrefs(prefs) || searchParams.get(QP.state) === "empty";
   return (
     <>
       <AdsMarketView
@@ -47,7 +49,7 @@ export default function MyFeedsPage() {
         summaryKind="my-feeds"
         sourceEmpty={!hasAnyPrefs(prefs)}
         emptyState={<NothingFollowed />}
-        headerSlot={<MyFeedsIdentity prefs={prefs} />}
+        headerSlot={<MyFeedsIdentity prefs={prefs} empty={nothingFeeds} />}
         headerActions={<InsightsSearch />}
       />
       <InsightsOverlayHost />

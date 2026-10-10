@@ -231,6 +231,9 @@ describe("My Feeds page", () => {
     renderAt(<MyFeedsPage />, "/industry-insights/feeds?state=empty");
     expect(screen.getByText("Nothing feeds My Feeds yet")).toBeInTheDocument();
     expect(screen.getByText(/competitors you mark/)).toBeInTheDocument();
+    // the identity row must not quote counts that contradict the empty state
+    expect(screen.getByText("Nothing followed yet")).toBeInTheDocument();
+    expect(screen.queryByText(/followed pages?/)).toBeNull();
     const links = screen.getAllByRole("link", { name: "Mark competitors or follow pages" });
     expect(links.some((l) => l.getAttribute("href") === "/industry-insights/advertisers")).toBe(true);
     expect(adCards().length).toBe(0);
@@ -240,7 +243,8 @@ describe("My Feeds page", () => {
     clearAllPrefs();
     renderAt(<MyFeedsPage />, "/industry-insights/feeds");
     expect(screen.getByText("Nothing feeds My Feeds yet")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /See what feeds My Feeds/ }).textContent).toMatch(/From\s+0 competitors/);
+    expect(screen.getByText("Nothing followed yet")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /See what feeds My Feeds/ })).toBeNull();
     expect(adCards().length).toBe(0);
   });
 
