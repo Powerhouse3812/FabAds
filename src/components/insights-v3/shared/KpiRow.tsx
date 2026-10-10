@@ -1,6 +1,7 @@
 import type { Kpi } from "@/lib/insights-v3/types";
 import { cn } from "@/lib/utils";
 import { Hint, InfoGlyph } from "./Hint";
+import { TruncatedText } from "./TruncatedText";
 
 export interface KpiRowProps {
   kpis: Kpi[];
@@ -33,22 +34,27 @@ function KpiTile({ kpi, dense }: { kpi: Kpi; dense?: boolean }) {
           : "border-border border-t-2 border-t-primary/70",
       )}
     >
-      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-        <span className="min-w-0 truncate">{kpi.label}</span>
-        {!disabled && <InfoGlyph tip={kpi.tooltip} />}
+      <div className="flex items-start gap-1 text-xs text-muted-foreground">
+        {/* Wraps to 2 lines before it clips; tooltip carries the full text when it still does. */}
+        <TruncatedText text={kpi.label} lines={2} className="flex-1 leading-4" focusable={!disabled} />
+        {!disabled && <InfoGlyph tip={kpi.tooltip} className="mt-0.5" />}
       </div>
-      <div
+      <TruncatedText
+        text={disabled ? "—" : kpi.display}
+        focusable={!disabled}
         className={cn(
-          "mt-0.5 truncate font-mono font-semibold tabular-nums",
+          "mt-0.5 font-mono font-semibold tabular-nums",
           dense ? "text-lg leading-6" : "text-2xl leading-8",
           disabled ? "text-muted-foreground" : "text-foreground",
         )}
-      >
-        {disabled ? "—" : kpi.display}
-      </div>
+      />
       {!dense && (
-        <div className={cn("mt-0.5 min-h-[16px] truncate text-xs", kpi.sub && !disabled ? subTone(kpi.sub) : "")}>
-          {disabled ? <span className="text-muted-foreground">Unavailable</span> : kpi.sub}
+        <div className="mt-0.5 min-h-[16px] text-xs">
+          {disabled ? (
+            <span className="text-muted-foreground">Unavailable</span>
+          ) : kpi.sub ? (
+            <TruncatedText text={kpi.sub} lines={2} className={cn("leading-4", subTone(kpi.sub))} />
+          ) : null}
         </div>
       )}
     </div>

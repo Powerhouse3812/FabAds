@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import { Hint } from "./Hint";
 import { TruncatedText } from "./TruncatedText";
 import { fmtInt } from "./format";
+import { missingNote } from "./missingNote";
 import { useViewMore } from "./url";
 
 export const TOP_N = 10;
@@ -83,6 +84,7 @@ export function TopTenGroup({ group, selected, onToggle, onViewMore, noun = "ads
   const rest = group.options.length - shown.length;
   const hiddenSelected = group.options.slice(limit).filter((o) => selected.includes(o.id)).length;
   const selectedHere = selected.length;
+  const note = missingNote(group.missing, noun, group.label, group.key);
 
   return (
     <section aria-label={group.label} className={cn("min-w-0 rounded-xl border border-border bg-card p-3", className)}>
@@ -111,6 +113,7 @@ export function TopTenGroup({ group, selected, onToggle, onViewMore, noun = "ads
           ))}
         </div>
       )}
+      {note && <p className="mt-2 text-xs text-muted-foreground">{note}</p>}
       {rest > 0 && (
         <div className="mt-2 flex items-center gap-2">
           <button

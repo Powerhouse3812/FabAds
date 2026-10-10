@@ -34,14 +34,16 @@ export function SelectedChips({
   rightSlot,
   className,
 }: SelectedChipsProps) {
+  // Never show a chip for an id the group doesn't know (hand-edited / stale URL): it would read as a raw
+  // slug and filter to nothing. "Clear all" still shows while ANY raw selection exists, so it can be undone.
+  const hasSelection = Object.values(selected).some((ids) => (ids?.length ?? 0) > 0);
   const chips = Object.entries(selected).flatMap(([key, ids]) => {
     const g = groups.find((x) => x.key === key);
-    return (ids ?? []).map((id) => ({
-      groupKey: key as TagGroupKey,
-      groupLabel: g?.label ?? key,
-      id,
-      label: g?.options.find((o) => o.id === id)?.label ?? id,
-    }));
+    return (ids ?? []).flatMap((id) => {
+      const opt = g?.options.find((o) => o.id === id);
+      if (g && !opt) return [];
+      return [{ groupKey: key as TagGroupKey, groupLabel: g?.label ?? key, id, label: opt?.label ?? id }];
+    });
   });
 
   return (
@@ -51,7 +53,7 @@ export function SelectedChips({
           <span className="font-mono text-base font-semibold tabular-nums">{fmtInt(total)}</span>{" "}
           <span className="text-muted-foreground">{pluralize(total, noun, nounSingular)}</span>
         </p>
-        {chips.length > 0 && (
+        {hasSelection && (
           <>
             <InfoGlyph tip="Showing items that match any selected tag. Each item is counted once." />
             <ul className="flex min-w-0 flex-wrap items-center gap-1.5" aria-label="Selected tags">

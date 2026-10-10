@@ -107,15 +107,19 @@ export function OverviewShell({
                   showSummary && charts && "lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]",
                 )}
               >
-                {showSummary &&
-                  (summary ? (
-                    <AiSummaryBlock summary={summary} />
-                  ) : (
-                    <AiSummaryBlock
-                      summary={{ text: "", ads: basedOn }}
-                      disabledReason={summaryDisabledReason ?? "Not enough data in this scope to write a summary."}
-                    />
-                  ))}
+                {showSummary && (
+                  // self-start: the summary keeps its natural height instead of stretching to the chart column.
+                  <div className="min-w-0 self-start">
+                    {summary ? (
+                      <AiSummaryBlock summary={summary} className="h-auto" />
+                    ) : (
+                      <AiSummaryBlock
+                        summary={{ text: "", ads: basedOn }}
+                        disabledReason={summaryDisabledReason ?? "Not enough data in this scope to write a summary."}
+                      />
+                    )}
+                  </div>
+                )}
                 {charts && <div className="min-w-0">{charts}</div>}
               </div>
             )}

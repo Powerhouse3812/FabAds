@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { ArrowLeft, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -39,6 +39,8 @@ export function DetailOverlay({
   onClose,
   children,
 }: DetailOverlayProps) {
+  const openerRef = useRef<HTMLElement | null>(null);
+  const titleRef = useRef<HTMLHeadingElement | null>(null);
   return (
     <DialogPrimitive.Root open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogPrimitive.Portal>
@@ -47,6 +49,25 @@ export function DetailOverlay({
           // Standing rule: overlays never dismiss on outside click.
           onPointerDownOutside={(e) => e.preventDefault()}
           onInteractOutside={(e) => e.preventDefault()}
+          // Esc closes only the TOP layer: nested → back one level; otherwise close. The X always closes all.
+          onEscapeKeyDown={(e) => {
+            e.preventDefault();
+            if (onBack) onBack();
+            else onClose();
+          }}
+          // Remember who opened us, then focus the title (never a tooltip trigger).
+          onOpenAutoFocus={(e) => {
+            e.preventDefault();
+            const a = document.activeElement;
+            openerRef.current = a instanceof HTMLElement && a !== document.body ? a : null;
+            titleRef.current?.focus({ preventScroll: true });
+          }}
+          onCloseAutoFocus={(e) => {
+            e.preventDefault();
+            const el = openerRef.current;
+            if (el && el.isConnected) el.focus({ preventScroll: true });
+            openerRef.current = null;
+          }}
           aria-describedby={undefined}
           className="fixed inset-y-0 right-0 z-50 flex w-full max-w-[1200px] flex-col border-l border-border bg-background shadow-2xl outline-none duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right sm:w-[calc(100vw-48px)]"
         >
@@ -66,7 +87,11 @@ export function DetailOverlay({
               <div className="min-w-0 flex-1">
                 <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                   <DialogPrimitive.Title asChild>
-                    <h2 className="min-w-0 max-w-full text-lg font-semibold leading-6 text-foreground">
+                    <h2
+                      ref={titleRef}
+                      tabIndex={-1}
+                      className="min-w-0 max-w-full text-lg font-semibold leading-6 text-foreground outline-none"
+                    >
                       <TruncatedText text={title} className="max-w-[min(640px,70vw)]" />
                     </h2>
                   </DialogPrimitive.Title>
