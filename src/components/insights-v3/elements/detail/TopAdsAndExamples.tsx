@@ -1,27 +1,22 @@
 /**
- * "Top ads + examples": AdCard grid (click → ad drawer) where each example has
- * Use in Genie + Save, then the type-specific extras:
+ * "Top ads + examples": AdCard grid (click → ad drawer; the card owns Save + Download)
+ * with a visible Use in Genie under each example, then the type-specific extras:
  *  - hooks:      verbatim opening lines pulled from the ads that use this hook style
  *  - frameworks: which beats the framework uses (frequency, NOT an order — the
  *                data layer does not expose a typical sequence)
  */
 import type { Ad, ElementType } from "@/lib/insights-v3/types";
 import type { MixBlock, QuoteBlock } from "@/lib/insights-v3/selectors";
-import { useBoardCountForItem } from "@/lib/insights-v3/stores";
 import { AdCard } from "@/components/insights-v3/ad-card/AdCard";
 import { UseInGenie } from "@/components/insights-v3/genie/UseInGenie";
-import { BasedOnNote, InfoGlyph, SaveButton, TruncatedText, fmtInt, useAdDrawer } from "@/components/insights-v3/shared";
+import { BasedOnNote, InfoGlyph, TruncatedText, fmtInt, useAdDrawer } from "@/components/insights-v3/shared";
 
 function Example({ ad, onOpen }: { ad: Ad; onOpen: (id: string) => void }) {
-  const ref = { type: "ad" as const, id: ad.id };
-  const savedCount = useBoardCountForItem(ref);
+  // The card owns Save + Download; Use in Genie sits in its overflow menu, so keep a visible one here.
   return (
     <li className="flex min-w-0 flex-col gap-1.5">
       <AdCard ad={ad} onOpen={onOpen} />
-      <div className="flex items-center justify-between gap-2">
-        <UseInGenie target={ref} variant="button" label="Use in Genie" />
-        <SaveButton target={ref} variant="icon" savedCount={savedCount} />
-      </div>
+      <UseInGenie target={{ type: "ad", id: ad.id }} variant="button" label="Use in Genie" />
     </li>
   );
 }

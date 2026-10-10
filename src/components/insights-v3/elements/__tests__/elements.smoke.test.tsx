@@ -115,9 +115,14 @@ describe("ElementDetail", () => {
   it("renders a hook: header actions, four sections, Based on, opening lines", () => {
     overlay("hook", "curiosity-question");
     expect(screen.getByRole("heading", { name: /Curiosity question/ })).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: /Use in Genie/ }).length).toBeGreaterThan(1);
-    expect(screen.getAllByRole("button", { name: /board/ }).length).toBeGreaterThan(0);
-    expect(screen.getByRole("button", { name: /Download/ })).toBeInTheDocument();
+    // Header actions, scoped to the overlay header so card-level buttons don't matter.
+    const header = within(screen.getByRole("dialog").querySelector("header") as HTMLElement);
+    expect(header.getByRole("button", { name: /Use in Genie/ })).toBeInTheDocument();
+    expect(header.getByRole("button", { name: /board/ })).toBeInTheDocument();
+    expect(header.getByRole("button", { name: /Download/ })).toBeInTheDocument();
+    // Each example keeps a visible Use in Genie under its card.
+    const examples = within(section("Top ads and examples") as HTMLElement);
+    expect(examples.getAllByRole("button", { name: /Use in Genie/ }).length).toBeGreaterThan(0);
     for (const t of ["Summary", "Where it works", "Works well with", "Top ads and examples"]) {
       expect(section(t)).not.toBeNull();
     }
