@@ -409,6 +409,12 @@ export interface TopTenGroup {
   label: string;
   /** Full list, count desc. UI shows the first 10 and "View more" for the rest. 0-count options stay (disabled). */
   options: TagOption[];
+  /**
+   * Scoped ads with NO value for this group (e.g. country missing). When > 0
+   * the UI discloses it ("108 ads have no country"), so counts that don't add
+   * up to the total are explained, not hidden (02 › States).
+   */
+  missing?: number;
 }
 
 /** Selected tags per group. Union within AND across groups (non-negotiable #3). */
