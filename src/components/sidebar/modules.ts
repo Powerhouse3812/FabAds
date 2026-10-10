@@ -9,6 +9,7 @@ import {
   Lightbulb,
   Sparkles, Receipt,
   Compass, Eye, Layers, Rss, TrendingUp,
+  Building2, Shapes,
   Plus,
   // Genie 2.0: Other Flows sub-nav entry. GitMerge reads as "many sources
   // converge here", which is exactly what Other Flows is; Workflow is
@@ -178,6 +179,22 @@ export const MODULES: ModuleDef[] = [
       { label: "Saved Ads", path: "/insights/saved",       icon: Bookmark },
       { label: "Competitor", path: "/insights/competitors", icon: Eye },
       { label: "Board",     path: "/insights/boards",      icon: Layers },
+    ],
+  },
+  {
+    // Industry Insights V2 — fresh build to docs/industry-insights (PRD + page
+    // specs, Oct 2026). Own namespace /industry-insights; the module above is
+    // deliberately left untouched (Maalik, 2026-10-10), same precedent as
+    // launchv2. No Home / Trends / Domains / Competitors items: domains live in
+    // Advertiser, competitor data shows in My Feeds.
+    key: "insights-v3", label: "Industry Insights V2", icon: Telescope, badge: "V2",
+    subItems: [
+      { label: "My Feeds",                  path: "/industry-insights/feeds",       icon: Rss },
+      { label: "Discover",                  path: "/industry-insights/discover",    icon: Compass },
+      { label: "Advertiser",                path: "/industry-insights/advertisers", icon: Building2 },
+      { label: "Creative Element Insights", path: "/industry-insights/elements",    icon: Shapes },
+      { label: "Saved Ads",                 path: "/industry-insights/saved",       icon: Bookmark },
+      { label: "Boards",                    path: "/industry-insights/boards",      icon: Layers },
     ],
   },
   {
@@ -355,6 +372,7 @@ export const MODULE_GROUPS: Record<string, ModuleGroup> = {
   "dashboard-variants": "RUN",
   reports: "RUN",
   insights: "RUN",
+  "insights-v3": "RUN",
   launchv2: "RUN",
   automation: "RUN",
   // CREATE
