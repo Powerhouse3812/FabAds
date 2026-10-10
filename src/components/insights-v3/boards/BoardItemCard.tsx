@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { getAd } from "@/lib/insights-v3/data";
 import { buildDownloads, detailTargetFor, snapshotFor } from "@/lib/insights-v3/selectors";
 import { addToBoard, removeFromBoard, updateBoardItemNote } from "@/lib/insights-v3/stores";
-import type { BoardItem } from "@/lib/insights-v3/types";
+import { SAVABLE_LABEL, type BoardItem } from "@/lib/insights-v3/types";
 import { cn } from "@/lib/utils";
 import { AdCard } from "@/components/insights-v3/ad-card/AdCard";
 import {
@@ -169,8 +169,35 @@ export function BoardItemCard({ boardId, item }: { boardId: string; item: BoardI
 
   const snap = live ? snapshotFor(ref)! : item.snapshot;
 
+  // The whole card opens the item, like Discover and Saved cards. Inner controls keep their own
+  // behaviour: clicks and keys that start on one never reach the card.
+  const INNER = "button, a, textarea, input, select, [role='menuitem']";
+  const onCardClick = (e: React.MouseEvent<HTMLElement>) => {
+    if (!live) return;
+    if ((e.target as HTMLElement).closest(INNER)) return;
+    if (window.getSelection?.()?.toString()) return; // selecting text must not open it
+    open();
+  };
+  const onCardKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
+    if (e.target !== e.currentTarget || !live) return;
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      open();
+    }
+  };
+
   return (
-    <article className="flex min-w-0 flex-col gap-2.5 rounded-xl border border-border bg-card p-3 shadow-sm transition-colors hover:border-primary/40">
+    <article
+      tabIndex={live ? 0 : undefined}
+      onClick={onCardClick}
+      onKeyDown={onCardKeyDown}
+      aria-label={live ? `${snap.title} (${SAVABLE_LABEL[ref.type]})` : undefined}
+      className={cn(
+        "flex min-w-0 flex-col gap-2.5 rounded-xl border border-border bg-card p-3 shadow-sm transition-colors hover:border-primary/40",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        live && "cursor-pointer",
+      )}
+    >
       <div className="flex items-start gap-3">
         {snap.thumbnailUrl && (
           <div className="h-14 w-14 shrink-0 overflow-hidden rounded-md border border-border bg-muted">

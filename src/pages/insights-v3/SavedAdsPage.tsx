@@ -167,7 +167,10 @@ export default function SavedAdsPage() {
         <p className="text-xs text-muted-foreground">
           Showing <span className="font-mono font-medium tabular-nums text-foreground">{fmtInt(sorted.length)}</span> of{" "}
           <span className="font-mono font-medium tabular-nums text-foreground">{fmtInt(saved.length)}</span> saved{" "}
-          {saved.length === 1 ? "ad" : "ads"} for the scope above.
+          {saved.length === 1 ? "ad" : "ads"} for the scope above.{" "}
+          <span className="text-muted-foreground">
+            The bookmark on a card adds that ad to a board; Unsave only removes it from this list.
+          </span>
         </p>
         <SortControl value={sort} options={AD_SORT_LABEL} onChange={setSort} />
       </div>
