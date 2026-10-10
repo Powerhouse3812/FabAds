@@ -499,6 +499,41 @@ export interface SavedItemRef {
   id: string;
 }
 
+/** Enough to render a board item without re-resolving it (data may be missing later). */
+export interface BoardItemSnapshot {
+  title: string;
+  subtitle?: string;
+  thumbnailUrl?: string | null;
+}
+
+export interface BoardItem {
+  ref: SavedItemRef;
+  addedAt: string; // ISO
+  note?: string;
+  snapshot: BoardItemSnapshot;
+}
+
+export interface Board {
+  id: string;
+  name: string;
+  description?: string;
+  pinned: boolean;
+  createdAt: string;
+  updatedAt: string;
+  items: BoardItem[];
+}
+
+/**
+ * A client-side download. Built by the data layer (`buildDownload(ref)`),
+ * triggered by the shared DownloadButton. Q16 formats:
+ *  - ad: creative media (url) + a .txt of copy and analysis
+ *  - framework/hook/angle/concept/domain/page/offer: Markdown one-pager
+ *  - landing-page: screenshot (url) + page text
+ */
+export type DownloadFile =
+  | { kind: "text"; filename: string; mime: "text/plain" | "text/markdown"; content: string }
+  | { kind: "url"; filename: string; url: string };
+
 /* ────────────────────────────────────────────────────────────────────────── */
 /* URL contract — every page, filter, tab, drawer, overlay and modal         */
 /* ────────────────────────────────────────────────────────────────────────── */
