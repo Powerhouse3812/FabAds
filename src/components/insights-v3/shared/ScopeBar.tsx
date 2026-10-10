@@ -80,7 +80,7 @@ function Picker({
           type="button"
           aria-label={`${caption}: ${valueLabel}. Change ${caption.toLowerCase()}`}
           className={cn(
-            "group inline-flex min-w-0 max-w-full items-center gap-2 rounded-md px-2.5 text-left transition-colors",
+            "group inline-flex w-full min-w-0 items-center justify-between gap-2 rounded-md sm:justify-start px-2.5 text-left transition-colors sm:w-auto sm:max-w-full sm:shrink",
             "hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
             compact ? "h-8" : "h-10",
             !isDefault && "bg-primary/10",
@@ -197,7 +197,8 @@ export function ScopeBar({
     <div className={cn("flex flex-wrap items-center gap-x-4 gap-y-2", className)}>
       <nav
         aria-label="Scope: industry, category, period"
-        className="inline-flex min-w-0 max-w-full flex-wrap items-center gap-0.5 rounded-lg border border-border bg-card p-0.5 shadow-sm"
+        // Below sm the pickers stack (no dangling "›"); from sm up they sit in one row and shrink instead of wrapping.
+        className="grid w-full min-w-0 grid-cols-1 gap-0.5 rounded-lg border border-border bg-card p-0.5 shadow-sm sm:inline-flex sm:w-auto sm:max-w-full sm:flex-nowrap sm:items-center"
       >
         <Picker
           caption="Industry"
@@ -209,7 +210,7 @@ export function ScopeBar({
           onPick={(id) => onChange({ ...scope, industry: id })}
           compact={compact}
         />
-        <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+        <ChevronRight className="hidden h-3.5 w-3.5 shrink-0 text-muted-foreground sm:block" aria-hidden="true" />
         <Picker
           caption="Category"
           value={scope.category}
@@ -222,7 +223,7 @@ export function ScopeBar({
           compact={compact}
           width={300}
         />
-        <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+        <ChevronRight className="hidden h-3.5 w-3.5 shrink-0 text-muted-foreground sm:block" aria-hidden="true" />
         <Picker
           caption="Period"
           value={scope.period}

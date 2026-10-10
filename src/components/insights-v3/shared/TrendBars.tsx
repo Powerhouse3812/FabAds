@@ -6,36 +6,37 @@ import { DisabledSection } from "./DisabledSection";
 import { Hint } from "./Hint";
 import { bucketRangeLabel, bucketTickLabel, fmtInt, fmtPct } from "./format";
 
-/** "+24% vs previous period" / "New this period" (previous = 0) / "−8% …". */
-export function ChangeChip({ changePct, className }: { changePct: number | null; className?: string }) {
-  if (changePct === null) {
-    return (
-      <span
-        className={cn(
-          "inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary-text",
-          className,
-        )}
-      >
-        New this period
-      </span>
-    );
-  }
-  const up = changePct > 0;
-  const down = changePct < 0;
-  return (
+/**
+ * "+24% vs previous period" / "New this period" (previous = 0) / "−8% …". Never wraps.
+ * `compact` (table rows) shortens to "+24% vs prev." / "New"; the full text moves to the tooltip.
+ */
+export function ChangeChip({ changePct, compact, className }: { changePct: number | null; compact?: boolean; className?: string }) {
+  const full = changePct === null ? "New this period" : `${fmtPct(changePct)} vs previous period`;
+  const up = changePct !== null && changePct > 0;
+  const down = changePct !== null && changePct < 0;
+  const chip = (
     <span
+      aria-label={compact ? full : undefined}
       className={cn(
-        "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium",
+        "inline-flex shrink-0 items-center whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] font-medium",
+        changePct === null && "border-primary/30 bg-primary/10 text-primary-text",
         up && "border-success-text/30 bg-success-text/10 text-success-text",
         down && "border-error-text/30 bg-error-text/10 text-error-text",
-        !up && !down && "border-border bg-muted text-muted-foreground",
+        changePct === 0 && "border-border bg-muted text-muted-foreground",
         className,
       )}
     >
-      <span className="font-mono tabular-nums">{fmtPct(changePct)}</span>
-      <span className="ml-1 font-normal opacity-80">vs previous period</span>
+      {changePct === null ? (
+        compact ? "New" : "New this period"
+      ) : (
+        <>
+          <span className="font-mono tabular-nums">{fmtPct(changePct)}</span>
+          <span className="ml-1 font-normal opacity-80">{compact ? "vs prev." : "vs previous period"}</span>
+        </>
+      )}
     </span>
   );
+  return compact ? <Hint content={full}>{chip}</Hint> : chip;
 }
 
 export interface TrendBarsProps {

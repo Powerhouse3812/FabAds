@@ -5,6 +5,7 @@ import type { SelectedTags, TagGroupKey, TopTenGroup } from "@/lib/insights-v3/t
 import { cn } from "@/lib/utils";
 import { TruncatedText } from "./TruncatedText";
 import { fmtInt } from "./format";
+import { missingNote } from "./missingNote";
 import { useViewMore } from "./url";
 
 const PAGE = 100;
@@ -43,6 +44,7 @@ export function ViewMoreModal({ groups, selected, onToggle, onClearGroup, noun =
     return q ? group.options.filter((o) => o.label.toLowerCase().includes(q)) : group.options;
   }, [group, query]);
   const shown = filtered.slice(0, visible);
+  const note = group ? missingNote(group.missing, noun, group.label, group.key) : null;
 
   return (
     <DialogPrimitive.Root open={!!group} onOpenChange={(o) => !o && close()}>
@@ -151,6 +153,7 @@ export function ViewMoreModal({ groups, selected, onToggle, onClearGroup, noun =
             )}
           </div>
 
+          {note && <p className="border-t border-border bg-muted/30 px-4 py-2 text-xs text-muted-foreground">{note}</p>}
           <footer className="flex items-center justify-between gap-2 border-t border-border bg-muted/30 px-4 py-2.5">
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <span>
