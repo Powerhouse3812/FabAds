@@ -202,15 +202,20 @@ describe("text search (?q=)", () => {
 });
 
 describe("My Feeds page", () => {
-  it("renders the Discover layout over the seeded sources, with the identity row and no prefs toggle", () => {
+  it("renders the feed layout over the seeded sources: sources pill in the Overview bar, no prefs toggle", () => {
     const { container } = renderAt(<MyFeedsPage />, "/industry-insights/feeds");
     expect(screen.getByRole("heading", { level: 1, name: /My Feeds/ })).toBeInTheDocument();
     expect(screen.queryByRole("switch", { name: "My preferences only" })).toBeNull();
     expect(screen.getByRole("button", { name: /See what feeds My Feeds/ }).textContent).toMatch(/From\s+\d+\s+competitors?.*followed pages?.*followed industr/s);
-    expect(screen.getAllByText(/Based on/).length).toBeGreaterThan(2);
     expect(adCards().length).toBeGreaterThan(0);
     expect(Number(total(container).replace(/,/g, ""))).toBeLessThan(800);
-    expect(screen.getByRole("region", { name: "Hook style" })).toBeInTheDocument();
+    // Quick filters and Overview are collapsed by default; the tag rows only exist once Quick filters is opened.
+    expect(screen.getByRole("button", { name: /^Quick filters/ })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("group", { name: "Hook style" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /^Quick filters/ }));
+    expect(screen.getByRole("group", { name: "Hook style" })).toBeInTheDocument();
+    // "Mark competitors or follow pages" now lives in the gear's sources popover.
+    fireEvent.click(screen.getByRole("button", { name: /Manage sources/ }));
     expect(screen.getAllByRole("link", { name: "Mark competitors or follow pages" })[0]).toHaveAttribute("href", "/industry-insights/advertisers");
   });
 
@@ -232,8 +237,8 @@ describe("My Feeds page", () => {
     renderAt(<MyFeedsPage />, "/industry-insights/feeds?state=empty");
     expect(screen.getByText("Nothing feeds My Feeds yet")).toBeInTheDocument();
     expect(screen.getByText(/competitors you mark/)).toBeInTheDocument();
-    // the identity row must not quote counts that contradict the empty state
-    expect(screen.getByText("Nothing followed yet")).toBeInTheDocument();
+    // no Overview pill may quote counts that contradict the empty state
+    expect(screen.queryByRole("button", { name: /See what feeds My Feeds/ })).toBeNull();
     expect(screen.queryByText(/followed pages?/)).toBeNull();
     const links = screen.getAllByRole("link", { name: "Mark competitors or follow pages" });
     expect(links.some((l) => l.getAttribute("href") === "/industry-insights/advertisers")).toBe(true);
@@ -244,7 +249,7 @@ describe("My Feeds page", () => {
     clearAllPrefs();
     renderAt(<MyFeedsPage />, "/industry-insights/feeds");
     expect(screen.getByText("Nothing feeds My Feeds yet")).toBeInTheDocument();
-    expect(screen.getByText("Nothing followed yet")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Quick filters/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /See what feeds My Feeds/ })).toBeNull();
     expect(adCards().length).toBe(0);
   });

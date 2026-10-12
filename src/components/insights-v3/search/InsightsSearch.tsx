@@ -42,7 +42,8 @@ const SCOPE_ICON: Record<SearchScopeKey, LucideIcon> = {
 /** Query param Discover should read for "See all" (not wired on Discover yet at the time of writing). */
 export const SEARCH_QUERY_PARAM = "q";
 
-export function InsightsSearch() {
+export function InsightsSearch({ variant = "default" }: { variant?: "default" | "pill" } = {}) {
+  const pill = variant === "pill";
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const drawer = useAdDrawer();
@@ -105,7 +106,7 @@ export function InsightsSearch() {
   return (
     <div
       ref={rootRef}
-      className="relative w-full min-w-0 sm:w-72"
+      className={cn("relative w-full min-w-0", pill ? "sm:w-[310px]" : "sm:w-72")}
       onBlur={(e) => {
         // Popover-class surface: closing when focus leaves the whole widget is allowed.
         if (!rootRef.current?.contains(e.relatedTarget as Node | null)) close();
@@ -114,8 +115,13 @@ export function InsightsSearch() {
       <Command shouldFilter={false} loop label="Search Industry Insights V2" className="relative">
         <div
           className={cn(
-            "flex h-8 items-center gap-2 rounded-md border bg-card px-2.5 transition-colors",
-            showPanel ? "border-primary/50 ring-2 ring-primary/20" : "border-border hover:border-primary/30",
+            "flex h-8 items-center gap-2 border px-2.5 transition-colors",
+            pill ? "rounded-full bg-muted/70 pl-3" : "rounded-md bg-card",
+            showPanel
+              ? "border-primary/50 ring-2 ring-primary/20"
+              : pill
+                ? "border-transparent hover:border-primary/30 hover:bg-muted"
+                : "border-border hover:border-primary/30",
           )}
         >
           <Search className="h-3.5 w-3.5 shrink-0 text-primary-text" aria-hidden="true" />
@@ -172,7 +178,10 @@ export function InsightsSearch() {
           <div
             // Keep focus in the input while clicking a result, so blur doesn't unmount the panel first.
             onMouseDown={(e) => e.preventDefault()}
-            className="absolute right-0 top-full z-40 mt-1 w-[min(26rem,calc(100vw-2rem))] overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-md"
+            className={cn(
+              "absolute top-full z-40 mt-1 w-[min(26rem,calc(100vw-2rem))] overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-md",
+              pill ? "left-0" : "right-0",
+            )}
           >
             <div className="flex items-center justify-between gap-2 border-b border-border/60 px-3 py-2">
               <p className="min-w-0 truncate font-mono text-[11px] uppercase tracking-wider text-muted-foreground">

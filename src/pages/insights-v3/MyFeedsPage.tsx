@@ -1,16 +1,15 @@
 /**
  * Industry Insights V2 · My Feeds (agent A).
- * The Discover layout as-is over a narrower source: competitors the user marked,
- * pages they follow and industries they follow. No "My preferences only" switch.
+ * Discover's data and logic over a narrower source (competitors the user marked, pages they follow and industries
+ * they follow), drawn in the feed layout (`layout="feed"`): toolbar, collapsed Quick filters + Overview bars, FeedCard.
+ * No "My preferences only" switch.
  */
-import { Link, useSearchParams } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { hasAnyPrefs } from "@/lib/insights-v3/selectors";
 import { useMyFeedsAds, useUserPrefs } from "@/lib/insights-v3/stores";
-import { INSIGHTS_ROUTES, QP } from "@/lib/insights-v3/types";
-import { InsightsSearch } from "@/components/insights-v3/search/InsightsSearch";
+import { INSIGHTS_ROUTES } from "@/lib/insights-v3/types";
 import { InsightsOverlayHost } from "@/components/insights-v3/InsightsOverlayHost";
 import { AdsMarketView } from "@/components/insights-v3/discover/AdsMarketView";
-import { MyFeedsIdentity } from "@/components/insights-v3/discover/MyFeedsIdentity";
 import { EmptyState } from "@/components/insights-v3/shared";
 
 function NothingFollowed() {
@@ -38,8 +37,6 @@ function NothingFollowed() {
 export default function MyFeedsPage() {
   const prefs = useUserPrefs();
   const feedAds = useMyFeedsAds();
-  const [searchParams] = useSearchParams();
-  const nothingFeeds = !hasAnyPrefs(prefs) || searchParams.get(QP.state) === "empty";
   return (
     <>
       <AdsMarketView
@@ -49,8 +46,7 @@ export default function MyFeedsPage() {
         summaryKind="my-feeds"
         sourceEmpty={!hasAnyPrefs(prefs)}
         emptyState={<NothingFollowed />}
-        headerSlot={<MyFeedsIdentity prefs={prefs} empty={nothingFeeds} />}
-        headerActions={<InsightsSearch />}
+        layout="feed"
       />
       <InsightsOverlayHost />
     </>

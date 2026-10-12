@@ -10,7 +10,7 @@
  * tag-union or trend logic. Tag counts never depend on what is selected: the
  * groups are built from the scoped ads, the union is applied only to the list.
  */
-import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useId, useMemo, useState, type ReactNode } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
 import { X } from "lucide-react";
 import { MODULE_NOW } from "@/lib/insights-v3/data";
@@ -42,6 +42,7 @@ import {
   InsightsPageLayout,
   OverviewShell,
   ScopeBar,
+  ScopePills,
   SelectedChips,
   SortControl,
   TopTenGroups,
@@ -52,6 +53,7 @@ import {
   useSelectedTags,
 } from "@/components/insights-v3/shared";
 import { SEARCH_QUERY_PARAM } from "@/components/insights-v3/search/InsightsSearch";
+import { FEED_FILTERS_KEY, FEED_OVERVIEW_KEY, FeedGrid, FeedOverview, FeedToolbar, QuickFilters, usePersistedFlag } from "@/components/insights-v3/feeds";
 import { AdGrid } from "./AdGrid";
 import { RisingScaling } from "./RisingScaling";
 import { TrendingTags } from "./TrendingTags";
@@ -78,6 +80,11 @@ export interface AdsMarketViewProps {
   headerSlot?: ReactNode;
   /** Page-level actions at the right of the title row. Left free for the orchestrator (search). */
   headerActions?: ReactNode;
+  /**
+   * "market" (default) = the Discover layout. "feed" = My Feeds: toolbar, collapsed Quick filters and Overview bars,
+   * and the My Feeds card. Same data, same URL state, same union rule: only the presentation differs.
+   */
+  layout?: "market" | "feed";
 }
 
 export function AdsMarketView({
@@ -90,7 +97,13 @@ export function AdsMarketView({
   sourceEmpty = false,
   headerSlot,
   headerActions,
+  layout = "market",
 }: AdsMarketViewProps) {
+  const feed = layout === "feed";
+  const [filtersOpen, setFiltersOpen] = usePersistedFlag(FEED_FILTERS_KEY, false);
+  const [overviewOpen, setOverviewOpen] = usePersistedFlag(FEED_OVERVIEW_KEY, false);
+  const filtersPanelId = useId();
+  const overviewPanelId = useId();
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
   const query = (searchParams.get(SEARCH_QUERY_PARAM) ?? "").trim();
@@ -178,28 +191,100 @@ export function AdsMarketView({
   const noAdsInScope = !loading && !noSource && scoped.length === 0;
   const noMatches = !loading && !noSource && scoped.length > 0 && total === 0;
 
-  const scopeBar = (compact: boolean) => (
-    <>
-      {headerSlot && !compact && <div className="pb-2">{headerSlot}</div>}
-      <ScopeBar
-        scope={scope}
-        onChange={setScope}
-        industries={industries}
-        categories={categoryRows.slice(1)}
-        totalCount={categoryRows[0]?.count ?? 0}
-        periodCounts={periodCounts}
+  const scopePillProps = {
+    scope,
+    onChange: setScope,
+    industries,
+    categories: categoryRows.slice(1),
+    totalCount: categoryRows[0]?.count ?? 0,
+    periodCounts,
+  };
+  // Tags that exist in the groups (a hand-edited URL's unknown ids must not inflate the badge).
+  // Memoised: it walks every option of every group, and this component re-renders on each page of infinite scroll.
+  const appliedCount = useMemo(
+    () =>
+      groups.reduce((n, g) => {
+        const ids = new Set(g.options.map((o) => o.id));
+        return n + (tags.selected[g.key] ?? []).filter((id) => ids.has(id)).length;
+      }, 0),
+    [groups, tags.selected],
+  );
+
+  const scopeBar = (compact: boolean) =>
+    feed ? (
+      <FeedToolbar
+        scopeProps={scopePillProps}
+        prefs={prefs}
+        appliedCount={appliedCount}
+        filtersOpen={filtersOpen}
+        onToggleFilters={() => setFiltersOpen(!filtersOpen)}
+        filtersId={loading ? undefined : filtersPanelId}
         compact={compact}
-        myPrefsToggle={
-          showPrefsToggle
-            ? { checked: scope.myPrefsOnly, onChange: (checked) => setScope({ myPrefsOnly: checked }), count: prefsCount }
-            : undefined
-        }
+        disabled={noSource}
       />
-    </>
+    ) : (
+      <>
+        {headerSlot && !compact && <div className="pb-2">{headerSlot}</div>}
+        <ScopeBar
+          scope={scope}
+          onChange={setScope}
+          industries={industries}
+          categories={categoryRows.slice(1)}
+          totalCount={categoryRows[0]?.count ?? 0}
+          periodCounts={periodCounts}
+          compact={compact}
+          myPrefsToggle={
+            showPrefsToggle
+              ? { checked: scope.myPrefsOnly, onChange: (checked) => setScope({ myPrefsOnly: checked }), count: prefsCount }
+              : undefined
+          }
+        />
+      </>
+    );
+
+  const feedBarsSkeleton = (
+    <div aria-hidden="true" className="flex flex-col gap-2">
+      <div className="h-11 animate-pulse rounded-xl border border-border bg-card" />
+      <div className="h-11 animate-pulse rounded-xl border border-border bg-card" />
+    </div>
+  );
+
+  const feedOverview = noSource ? undefined : (
+    <div className="flex flex-col gap-2">
+      <QuickFilters
+        groups={groups}
+        trending={trending}
+        selected={tags.selected}
+        onToggle={tags.toggle}
+        onClearAll={tags.clearAll}
+        expanded={filtersOpen}
+        onExpandedChange={setFiltersOpen}
+        panelId={filtersPanelId}
+      />
+      <FeedOverview
+        expanded={overviewOpen}
+        onExpandedChange={setOverviewOpen}
+        panelId={overviewPanelId}
+        prefs={prefs}
+        kpis={kpis}
+        summary={summary}
+        series={series}
+        baseAds={base}
+        period={scope.period}
+        now={MODULE_NOW}
+        basedOn={scoped.length}
+        trendBasedOn={base.length}
+        groups={groups}
+        selected={tags.selected}
+        onToggleTag={tags.toggle}
+      />
+    </div>
   );
 
   const overview = loading ? (
-    <OverviewSkeleton />
+    feed ? feedBarsSkeleton : <OverviewSkeleton />
+  ) : feed ? (
+    feedOverview
   ) : noSource ? undefined : (
       <OverviewShell
         pageKey={pageKey}
@@ -292,6 +377,7 @@ export function AdsMarketView({
       />
     );
   else if (noMatches) list = <EmptyResults noun="ads" onClear={() => clearSearch(true)} />;
+  else if (feed) list = <FeedGrid ads={sorted.slice(0, shown)} scopedAds={scoped} total={total} onLoadMore={loadMore} />;
   else list = <AdGrid ads={sorted.slice(0, shown)} scopedAds={scoped} total={total} onLoadMore={loadMore} />;
 
   return (
@@ -300,7 +386,7 @@ export function AdsMarketView({
         title={title}
         count={loading || noSource ? undefined : total}
         countNoun="ads"
-        headerActions={headerActions}
+        headerActions={feed ? (noSource ? undefined : <ScopePills kind="period" {...scopePillProps} />) : headerActions}
         scopeBar={scopeBar}
         overview={overview}
         chips={chips}

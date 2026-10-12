@@ -6,7 +6,21 @@ import { cn } from "@/lib/utils";
 
 const KIND_LABEL: Record<Ad["mediaKind"], string> = { image: "Image", video: "Video", carousel: "Carousel" };
 
-export function AdCardMedia({ ad, className, compact }: { ad: Ad; className?: string; compact?: boolean }) {
+export function AdCardMedia({
+  ad,
+  className,
+  compact,
+  hideKindChip,
+  onBroken,
+}: {
+  ad: Ad;
+  className?: string;
+  compact?: boolean;
+  /** My Feeds card draws its own kind chip alongside "N Similar ads". */
+  hideKindChip?: boolean;
+  /** Called once when the thumbnail fails to load, so a caller drawing overlays can switch to the no-creative layout. */
+  onBroken?: () => void;
+}) {
   const [broken, setBroken] = useState(false);
   const showImg = !!ad.thumbnailUrl && !broken;
   const Placeholder = ad.mediaKind === "video" ? Video : ad.mediaKind === "carousel" ? Layers : ImageIcon;
@@ -23,7 +37,10 @@ export function AdCardMedia({ ad, className, compact }: { ad: Ad; className?: st
           src={ad.thumbnailUrl ?? undefined}
           alt=""
           loading="lazy"
-          onError={() => setBroken(true)}
+          onError={() => {
+            setBroken(true);
+            onBroken?.();
+          }}
           className="h-full w-full object-cover"
         />
       ) : (
@@ -49,7 +66,7 @@ export function AdCardMedia({ ad, className, compact }: { ad: Ad; className?: st
           )}
         </div>
       )}
-      {ad.mediaKind !== "image" && !compact && (
+      {ad.mediaKind !== "image" && !compact && !hideKindChip && (
         <span className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full bg-background/90 px-2 py-0.5 text-[11px] font-medium text-foreground shadow-sm">
           {ad.mediaKind === "video" ? (
             <Play className="h-3 w-3 fill-current text-primary-text" aria-hidden="true" />

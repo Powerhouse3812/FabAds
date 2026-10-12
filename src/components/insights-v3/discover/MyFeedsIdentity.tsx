@@ -46,6 +46,47 @@ function Group({ title, empty, children }: { title: string; empty: boolean; chil
   );
 }
 
+/** What feeds My Feeds, with inline unmark / unfollow. Shared by the identity row's popover and the feed toolbar's gear. */
+export function SourcesList({ prefs }: { prefs: UserPrefs }) {
+  const competitors: { kind: CompetitorKind; id: string }[] = [
+    ...prefs.competitorPageIds.map((id) => ({ kind: "page" as const, id })),
+    ...prefs.competitorDomainIds.map((id) => ({ kind: "domain" as const, id })),
+  ];
+  const nameOf = (id: string) => getAdvertiser(id)?.name ?? id;
+  return (
+    <>
+      <div className="max-h-[320px] divide-y divide-border overflow-y-auto pr-1">
+        <Group title="Competitors" empty={competitors.length === 0}>
+          {competitors.map((c) => (
+            <SourceRow
+              key={`${c.kind}:${c.id}`}
+              label={`${nameOf(c.id)}${c.kind === "domain" ? " (domain)" : ""}`}
+              actionLabel="Unmark"
+              onRemove={() => toggleCompetitor(c.kind, c.id)}
+            />
+          ))}
+        </Group>
+        <Group title="Followed pages" empty={prefs.followedPageIds.length === 0}>
+          {prefs.followedPageIds.map((id) => (
+            <SourceRow key={id} label={nameOf(id)} actionLabel="Unfollow" onRemove={() => toggleFollowPage(id)} />
+          ))}
+        </Group>
+        <Group title="Followed industries" empty={prefs.followedIndustryIds.length === 0}>
+          {prefs.followedIndustryIds.map((id) => (
+            <SourceRow key={id} label={getIndustry(id)?.label ?? id} actionLabel="Unfollow" onRemove={() => toggleFollowIndustry(id)} />
+          ))}
+        </Group>
+      </div>
+      <Link
+        to={INSIGHTS_ROUTES.advertiser}
+        className="mt-2 inline-flex rounded-sm text-xs font-medium text-primary-text underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        Mark competitors or follow pages
+      </Link>
+    </>
+  );
+}
+
 /**
  * `empty` = the page is showing its "nothing feeds My Feeds" state (nothing followed or marked, or `?state=empty`).
  * The row then says so instead of quoting counts that contradict the screen below it.
@@ -71,7 +112,6 @@ export function MyFeedsIdentity({ prefs, empty = false }: { prefs: UserPrefs; em
     ...prefs.competitorPageIds.map((id) => ({ kind: "page" as const, id })),
     ...prefs.competitorDomainIds.map((id) => ({ kind: "domain" as const, id })),
   ];
-  const nameOf = (id: string) => getAdvertiser(id)?.name ?? id;
 
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
@@ -93,34 +133,7 @@ export function MyFeedsIdentity({ prefs, empty = false }: { prefs: UserPrefs; em
           </button>
         </PopoverTrigger>
         <PopoverContent align="start" className="w-[340px] p-3">
-          <div className="max-h-[320px] divide-y divide-border overflow-y-auto pr-1">
-            <Group title="Competitors" empty={competitors.length === 0}>
-              {competitors.map((c) => (
-                <SourceRow
-                  key={`${c.kind}:${c.id}`}
-                  label={`${nameOf(c.id)}${c.kind === "domain" ? " (domain)" : ""}`}
-                  actionLabel="Unmark"
-                  onRemove={() => toggleCompetitor(c.kind, c.id)}
-                />
-              ))}
-            </Group>
-            <Group title="Followed pages" empty={prefs.followedPageIds.length === 0}>
-              {prefs.followedPageIds.map((id) => (
-                <SourceRow key={id} label={nameOf(id)} actionLabel="Unfollow" onRemove={() => toggleFollowPage(id)} />
-              ))}
-            </Group>
-            <Group title="Followed industries" empty={prefs.followedIndustryIds.length === 0}>
-              {prefs.followedIndustryIds.map((id) => (
-                <SourceRow key={id} label={getIndustry(id)?.label ?? id} actionLabel="Unfollow" onRemove={() => toggleFollowIndustry(id)} />
-              ))}
-            </Group>
-          </div>
-          <Link
-            to={INSIGHTS_ROUTES.advertiser}
-            className="mt-2 inline-flex rounded-sm text-xs font-medium text-primary-text underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            Mark competitors or follow pages
-          </Link>
+          <SourcesList prefs={prefs} />
         </PopoverContent>
       </Popover>
       <Link

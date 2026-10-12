@@ -1,11 +1,11 @@
 /** Ad card action row: Save, Download and the overflow menu (Use in Genie, Copy link). */
 import { Link2, MoreHorizontal } from "lucide-react";
-import { toast } from "sonner";
 import { buildDownloads } from "@/lib/insights-v3/selectors";
 import { useBoardCountForItem, useIsAdSaved } from "@/lib/insights-v3/stores";
 import type { SavedItemRef } from "@/lib/insights-v3/types";
 import { DownloadButton, SaveButton } from "@/components/insights-v3/shared";
 import { UseInGenie } from "@/components/insights-v3/genie/UseInGenie";
+import { copyAdLink } from "./copyAdLink";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,26 +13,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
-/** Current URL with `ad=<id>` so the link reopens the drawer. */
-function adLink(adId: string): string {
-  try {
-    const url = new URL(window.location.href);
-    url.searchParams.set("ad", adId);
-    return url.toString();
-  } catch {
-    return `?ad=${encodeURIComponent(adId)}`;
-  }
-}
-
-async function copyAdLink(adId: string) {
-  try {
-    await navigator.clipboard.writeText(adLink(adId));
-    toast.success("Link copied");
-  } catch {
-    toast.error("Couldn't copy the link. Open the ad and copy it from the address bar.");
-  }
-}
 
 export function AdCardActions({ adId, pageName }: { adId: string; pageName: string }) {
   const ref: SavedItemRef = { type: "ad", id: adId };
