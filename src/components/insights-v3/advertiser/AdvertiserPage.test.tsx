@@ -52,7 +52,7 @@ function renderAt(url: string) {
 describe("AdvertiserPage", () => {
   it("renders the Domain tab populated: tabs with counts, overview, groups, table columns", () => {
     renderAt("/industry-insights/advertisers");
-    expect(screen.getByRole("heading", { level: 1, name: /Advertiser/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: /Competitors/ })).toBeInTheDocument();
     const tabs = screen.getAllByRole("tab");
     expect(tabs.map((t) => t.textContent)).toEqual([
       expect.stringMatching(/^Domain\d/),
@@ -100,7 +100,7 @@ describe("AdvertiserPage", () => {
       "Offer",
       "Funnel type",
       "Ads (total + active)",
-      "Advertisers",
+      "Competitors",
       "Winners",
       "Actions",
     ]);
@@ -115,7 +115,7 @@ describe("AdvertiserPage", () => {
     expect(screen.queryByRole("region", { name: "Category" })).toBeNull();
   });
 
-  it("opens the advertiser overlay through the URL when a row is clicked", () => {
+  it("opens the competitor overlay through the URL when a row is clicked", () => {
     renderAt("/industry-insights/advertisers");
     const table = screen.getByRole("table", { name: "Domains" });
     const row = within(table).getAllByRole("row")[1];

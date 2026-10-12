@@ -102,7 +102,7 @@ const LABEL_MAP: Record<string, string> = {
   insights: "Industry Insights",
   "industry-insights": "Industry Insights V2",
   feeds: "My Feeds",
-  advertisers: "Advertiser",
+  advertisers: "Competitors",
   elements: "Creative Element Insights",
   discover: "Discover",
   boards: "Boards",

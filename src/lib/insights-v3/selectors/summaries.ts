@@ -171,7 +171,7 @@ export function aiSummary(subject: SummarySubject, data: DataIndex = INDEX): AiS
         text:
           `Based on ${adsWord(n)} using ${quoteLabel(type, element.label)}, ${share}% of ads in scope. ` +
           `${capitalize(passClause(winners).replace(/^(\d[\d.,KM]*) /, "$1 of them "))}${avgText}. ` +
-          (catLabel ? `It appears most in ${catLabel} and is used by ${formatCompact(advertisers)} advertiser${advertisers === 1 ? "" : "s"}. ` : "") +
+          (catLabel ? `It appears most in ${catLabel} and is used by ${formatCompact(advertisers)} competitor${advertisers === 1 ? "" : "s"}. ` : "") +
           `Usage counts show popularity, not results.`,
       };
     }
@@ -186,7 +186,7 @@ export function aiSummary(subject: SummarySubject, data: DataIndex = INDEX): AiS
         ads: n,
         text:
           `Based on ${adsWord(n)} sending traffic to this ${funnel} page on ${lp.domain}. ` +
-          `${formatCompact(pages)} advertiser${pages === 1 ? " uses" : "s use"} it. ${liveAndWinners(ads)}` +
+          `${formatCompact(pages)} competitor${pages === 1 ? " uses" : "s use"} it. ${liveAndWinners(ads)}` +
           (hook ? ` The most used hook style leading here is ${hook.label.toLowerCase()}.` : "") +
           offer,
       };
@@ -199,7 +199,7 @@ export function aiSummary(subject: SummarySubject, data: DataIndex = INDEX): AiS
         ads: n,
         text:
           `Based on ${adsWord(n)} across ${formatCompact(subject.landingPageCount)} landing page${subject.landingPageCount === 1 ? "" : "s"} that send to ${subject.offerDomain}. ` +
-          `${formatCompact(pages)} advertiser${pages === 1 ? " promotes" : "s promote"} it. ${liveAndWinners(ads)}` +
+          `${formatCompact(pages)} competitor${pages === 1 ? " promotes" : "s promote"} it. ${liveAndWinners(ads)}` +
           (fw ? ` The most used framework in these ads is ${fw.label}.` : ""),
       };
     }

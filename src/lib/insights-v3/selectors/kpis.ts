@@ -100,7 +100,7 @@ export function discoverKpis(baseAds: Ad[], scope: Scope, ctx: SelectorCtx): Kpi
     }),
     kpi({
       key: "advertisers",
-      label: "Advertisers",
+      label: "Competitors",
       value: pages,
       display: formatCompact(pages),
       sub: `${plural(domains, "domain")}`,

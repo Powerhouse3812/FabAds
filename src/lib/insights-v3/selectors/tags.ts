@@ -20,7 +20,7 @@ export const TAG_GROUP_LABEL: Record<TagGroupKey, string> = {
   concept: "Concept",
   keyword: "Keyword / topic",
   cta: "CTA",
-  advertiser: "Advertiser / domain",
+  advertiser: "Competitor / domain",
   landingPage: "Landing pages",
   country: "Country",
   category: "Category",

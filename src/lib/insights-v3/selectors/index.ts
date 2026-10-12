@@ -10,6 +10,7 @@ export * from "./trends";
 export * from "./kpis";
 export * from "./rows";
 export * from "./sorts";
+export * from "./feedFilters";
 export * from "./summaries";
 export * from "./details";
 export * from "./downloads";

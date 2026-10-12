@@ -322,7 +322,7 @@ export default function AdvertiserPage() {
   return (
     <>
       <InsightsPageLayout
-        title="Advertiser"
+        title="Competitors"
         count={loading ? undefined : shownCount}
         countNoun={noun.plural}
         headerActions={<InsightsSearch />}
@@ -339,7 +339,7 @@ export default function AdvertiserPage() {
         )}
         tabs={
           <PageTabs<TabKey>
-            aria-label="Advertiser sections"
+            aria-label="Competitor sections"
             value={tab}
             onChange={setTab}
             tabs={[

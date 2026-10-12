@@ -108,7 +108,7 @@ export function AdMetaPanel({ ad }: { ad: Ad }) {
             <Hint
               content={
                 ad.transparencyRegions.length > 0
-                  ? "Regions where this advertiser's transparency information is shown."
+                  ? "Regions where this competitor's transparency information is shown."
                   : "Not reported"
               }
             >

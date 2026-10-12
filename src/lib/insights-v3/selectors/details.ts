@@ -136,7 +136,7 @@ function statKpis(ads: Ad[]): Kpi[] {
       disabledReason: avg.basedOn === 0 ? "No ad here has a known start date." : undefined,
     },
     { key: "landingPages", label: "Landing pages", value: lps, display: formatCompact(lps), tooltip: "Distinct landing pages these ads send to." },
-    { key: "clones", label: "Total clones", value: clones, display: formatCompact(clones), tooltip: "Copies of these creatives seen across other advertisers." },
+    { key: "clones", label: "Total clones", value: clones, display: formatCompact(clones), tooltip: "Copies of these creatives seen across other competitors." },
   ];
   return kpis;
 }
@@ -282,7 +282,7 @@ export function elementDetail(type: ElementType, id: string, baseAds: Ad[], scop
   });
   kpis.push({
     key: "advertisers",
-    label: "Advertisers",
+    label: "Competitors",
     value: new Set(ads.map((a) => a.pageAdvertiserId)).size,
     display: formatCompact(new Set(ads.map((a) => a.pageAdvertiserId)).size),
     tooltip: "Pages (brands) running ads that use it.",

@@ -63,7 +63,7 @@ export function AdMetricsSection({ ad }: { ad: Ad }) {
         <ClonesPill clones={ad.clones} />
         <StatusPill status={ad.status} />
       </div>
-      <EngagementGroup engagement={ad.engagement} className="mt-3" />
+      <EngagementGroup engagement={ad.engagement} daysLive={ad.daysLive} className="mt-3" />
     </OverlaySection>
   );
 }

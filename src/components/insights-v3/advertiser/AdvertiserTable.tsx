@@ -31,7 +31,7 @@ function TopElement({ type, item }: { type: Extract<ElementType, "framework" | "
       {item ? (
         <ElementChip type={type} id={item.id} label={item.label} className="h-5 min-w-0 flex-1 justify-start text-[11px]" />
       ) : (
-        <Hint content={`No ${type} could be identified in this advertiser's ads in scope.`}>
+        <Hint content={`No ${type} could be identified in this competitor's ads in scope.`}>
           <span tabIndex={0} className="text-xs text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             —
           </span>

@@ -10,10 +10,10 @@
  * Click on the body opens the drawer; every inner control stops propagation.
  */
 import { memo, useState, type KeyboardEvent, type MouseEvent } from "react";
-import { Layers, Link2, MoreHorizontal, Play, UserCheck, UserPlus } from "lucide-react";
+import { Heart, Layers, Link2, MessageCircle, MoreHorizontal, Play, Share2, UserCheck, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { getAdvertiser, getCategory, getIndustry } from "@/lib/insights-v3/data";
-import { isEngagementStandout, isNew, isWinner } from "@/lib/insights-v3/selectors";
+import { hasEngagement, isEngagementStandout, isNew, isWinner } from "@/lib/insights-v3/selectors";
 import { buildDownloads } from "@/lib/insights-v3/selectors";
 import { toggleFollowPage, useBoardCountForItem, useIsAdSaved, useIsPageFollowed, useLastVisitAt } from "@/lib/insights-v3/stores";
 import { ACTIVE_WINDOW_DAYS, type Ad, type SavedItemRef } from "@/lib/insights-v3/types";
@@ -137,6 +137,31 @@ function Tag({ children, className }: { children: React.ReactNode; className?: s
   );
 }
 
+/** "This ad reports engagement" — which metrics, never the numbers (those live in the ad drawer). */
+function EngagementIndicator({ engagement }: { engagement: Ad["engagement"] }) {
+  const parts = [
+    { key: "likes", label: "likes", Icon: Heart, on: engagement.likes != null },
+    { key: "comments", label: "comments", Icon: MessageCircle, on: engagement.comments != null },
+    { key: "shares", label: "shares", Icon: Share2, on: engagement.shares != null },
+  ].filter((p) => p.on);
+  const names = parts.map((p) => p.label).join(", ");
+  const tip = `Reports ${names}. Open the ad for the numbers.`;
+  return (
+    <Hint content={tip}>
+      <span
+        tabIndex={0}
+        aria-label={`Engagement data: ${tip}`}
+        className="inline-flex h-[21px] items-center gap-1 rounded-full bg-primary/10 px-2 text-[11px] font-medium text-primary-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        {parts.map(({ key, Icon }) => (
+          <Icon key={key} className="h-3 w-3" aria-hidden="true" />
+        ))}
+        Engagement
+      </span>
+    </Hint>
+  );
+}
+
 function FooterButton({ label, onClick, children }: { label: string; onClick: (e: MouseEvent) => void; children: React.ReactNode }) {
   return (
     <Hint content={label}>
@@ -254,7 +279,7 @@ function FeedCardImpl({ ad, scopedAds, className }: FeedCardProps) {
               {fresh && <NewBadge className="pointer-events-auto" />}
               {winner && <WinnerBadge engagementStandout={standout} className="pointer-events-auto bg-card text-warning-text" />}
             </div>
-            <AiScoreBadge score={ad.aiScore} className="absolute right-3 top-2.5 border-transparent bg-black/65 text-white" />
+            <AiScoreBadge score={ad.aiScore} solid className="absolute right-3 top-2.5 shadow-sm" />
             {ad.mediaKind === "video" && (
               <span
                 aria-hidden="true"
@@ -293,7 +318,7 @@ function FeedCardImpl({ ad, scopedAds, className }: FeedCardProps) {
               </span>
             </Tag>
           )}
-          <AiScoreBadge score={ad.aiScore} />
+          <AiScoreBadge score={ad.aiScore} solid />
         </div>
       )}
 
@@ -323,6 +348,7 @@ function FeedCardImpl({ ad, scopedAds, className }: FeedCardProps) {
       <div className="flex flex-wrap gap-1.5 px-3 pb-2.5 pt-2">
         <Tag className="bg-primary/10 text-primary-text">{industry}</Tag>
         <Tag>{category}</Tag>
+        {hasEngagement(ad) && <EngagementIndicator engagement={ad.engagement} />}
       </div>
 
       {/* footer */}

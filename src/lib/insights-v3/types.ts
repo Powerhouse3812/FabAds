@@ -247,7 +247,7 @@ export type Platform =
   | "Facebook & Instagram" | "TikTok" | "YouTube" | "LinkedIn"
   | "Snapchat" | "Pinterest" | "Reddit" | "X";
 
-/** Reported on ~20% of ads. Null = "Not reported". Never filtered or sorted on. */
+/** Reported on ~20% of ads. Null = "Not reported". Not a filter. Sortable ONLY on My Feeds (FeedAdSort), always with a "not every ad reports this" warning. */
 export interface Engagement {
   likes: number | null;
   comments: number | null;
@@ -425,6 +425,8 @@ export type SelectedTags = Partial<Record<TagGroupKey, string[]>>;
 /* ────────────────────────────────────────────────────────────────────────── */
 
 export type AdSort = "newest" | "oldest" | "longest-running" | "most-cloned" | "ai-score";
+/** My Feeds adds the three engagement sorts. Ads that do not report the metric are listed LAST, never hidden. */
+export type FeedAdSort = AdSort | "most-liked" | "most-commented" | "most-shared";
 export type AdvertiserSort = "most-ads" | "most-active" | "most-winners" | "longest-run";
 export type LandingPageSort = "most-ads" | "most-active" | "most-advertisers" | "longest-running" | "fastest-rising";
 export type ElementSort = "most-used" | "most-winners" | "fastest-rising" | "longest-running";
@@ -436,6 +438,18 @@ export const AD_SORT_LABEL: Record<AdSort, string> = {
   "most-cloned": "Most cloned",
   "ai-score": "AI score",
 };
+export const FEED_AD_SORT_LABEL: Record<FeedAdSort, string> = {
+  ...AD_SORT_LABEL,
+  "most-liked": "Most liked",
+  "most-commented": "Most commented",
+  "most-shared": "Most shared",
+};
+/** Which Engagement field each engagement sort ranks on. */
+export const ENGAGEMENT_SORT_FIELD = {
+  "most-liked": "likes",
+  "most-commented": "comments",
+  "most-shared": "shares",
+} as const satisfies Partial<Record<FeedAdSort, keyof Engagement>>;
 export const ADVERTISER_SORT_LABEL: Record<AdvertiserSort, string> = {
   "most-ads": "Most ads",
   "most-active": "Most active / scaling",
@@ -445,7 +459,7 @@ export const ADVERTISER_SORT_LABEL: Record<AdvertiserSort, string> = {
 export const LANDING_PAGE_SORT_LABEL: Record<LandingPageSort, string> = {
   "most-ads": "Most ads",
   "most-active": "Most active",
-  "most-advertisers": "Most advertisers",
+  "most-advertisers": "Most competitors",
   "longest-running": "Longest running",
   "fastest-rising": "Fastest rising",
 };

@@ -39,7 +39,7 @@ export function AdvertiserDetail({ kind, id, nav }: { kind: AdvertiserKind; id: 
     return (
       <DetailOverlay {...frame} title={id} subtitle="Not in the current scope">
         <OverlayEmpty
-          title="This advertiser isn't in the current scope"
+          title="This competitor isn't in the current scope"
           body="It may not exist, or none of its ads fall inside the industry, category and period you picked."
           onClose={nav.onClose}
         />
@@ -86,7 +86,7 @@ export function AdvertiserDetail({ kind, id, nav }: { kind: AdvertiserKind; id: 
     return (
       <DetailOverlay {...header}>
         <OverlayEmpty
-          title="No ads from this advertiser in the current scope"
+          title="No ads from this competitor in the current scope"
           body="Its ads fall outside the industry, category or period you picked. Widen the scope to see its analysis."
           onClose={nav.onClose}
           extra={
@@ -127,10 +127,10 @@ export function AdvertiserDetail({ kind, id, nav }: { kind: AdvertiserKind; id: 
       <OverlaySection title="How they hook" basedOn={detail.basedOn}>
         <div className="space-y-3">
           <SubGrid>
-            <MixGroup title="Hooks" type="hook" mix={detail.hooks} emptyReason="No hook style could be identified in this advertiser's ads." note="Hook styles, by how many ads use them." />
-            <MixGroup title="Angles" type="angle" mix={detail.angles} emptyReason="No angle could be identified in this advertiser's ads." />
-            <MixGroup title="Frameworks" type="framework" mix={detail.frameworks} emptyReason="No framework could be identified in this advertiser's ads." />
-            <MixGroup title="Concepts" type="concept" mix={detail.concepts} emptyReason="No concept could be identified in this advertiser's ads." />
+            <MixGroup title="Hooks" type="hook" mix={detail.hooks} emptyReason="No hook style could be identified in this competitor's ads." note="Hook styles, by how many ads use them." />
+            <MixGroup title="Angles" type="angle" mix={detail.angles} emptyReason="No angle could be identified in this competitor's ads." />
+            <MixGroup title="Frameworks" type="framework" mix={detail.frameworks} emptyReason="No framework could be identified in this competitor's ads." />
+            <MixGroup title="Concepts" type="concept" mix={detail.concepts} emptyReason="No concept could be identified in this competitor's ads." />
           </SubGrid>
           <p className="text-xs text-muted-foreground">
             Counts show how many ads use each item. They show usage, not performance.
@@ -140,14 +140,14 @@ export function AdvertiserDetail({ kind, id, nav }: { kind: AdvertiserKind; id: 
               title="CTA mix"
               unit="share of ads with a CTA button"
               mix={detail.ctas}
-              emptyReason="None of this advertiser's ads has a CTA button label."
+              emptyReason="None of this competitor's ads has a CTA button label."
             />
             <MixGroup
               title="Keywords"
               type={null}
               interactive={false}
               mix={detail.keywords}
-              emptyReason="No keywords could be extracted from this advertiser's ads."
+              emptyReason="No keywords could be extracted from this competitor's ads."
             />
           </SubGrid>
           {detail.hookLines.items.length > 0 && (
@@ -176,7 +176,7 @@ export function AdvertiserDetail({ kind, id, nav }: { kind: AdvertiserKind; id: 
         title="Winning ads"
         adIds={detail.winners.adIds}
         basedOn={detail.winners.basedOn}
-        emptyReason="No ad from this advertiser passes the Winner rule yet (seen live, 14+ days running, 2+ clones)."
+        emptyReason="No ad from this competitor passes the Winner rule yet (seen live, 14+ days running, 2+ clones)."
       />
       <AdStripSection
         title="Longest running ads"
@@ -189,7 +189,7 @@ export function AdvertiserDetail({ kind, id, nav }: { kind: AdvertiserKind; id: 
       <OverlaySection
         title="Landing pages: where the traffic goes"
         basedOn={lp.basedOn}
-        disabledReason={lp.rows.length === 0 ? "None of this advertiser's ads in this scope send to a landing page we captured." : undefined}
+        disabledReason={lp.rows.length === 0 ? "None of this competitor's ads in this scope send to a landing page we captured." : undefined}
         minHeight={120}
       >
         <LandingPageList rows={lp.rows} />

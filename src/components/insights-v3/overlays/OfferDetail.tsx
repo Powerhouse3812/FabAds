@@ -104,9 +104,9 @@ export function OfferDetail({ id, nav }: { id: string; nav: OverlayNav }) {
       />
 
       <OverlaySection
-        title="Advertisers and funnels"
+        title="Competitors and funnels"
         basedOn={detail.advertisers.basedOn}
-        disabledReason={noAds ? "No advertiser in the current scope sends traffic to this offer." : undefined}
+        disabledReason={noAds ? "No competitor in the current scope sends traffic to this offer." : undefined}
         minHeight={110}
       >
         <div className="space-y-3">

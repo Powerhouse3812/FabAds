@@ -47,14 +47,14 @@ describe("Discover page", () => {
     expect(screen.getByRole("heading", { level: 1, name: /Discover/ })).toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: /Scope/ })).toBeInTheDocument();
     expect(screen.getByRole("switch", { name: "My preferences only" })).not.toBeChecked();
-    for (const k of ["Total ads", "Active ads", "Winning ads", "Advertisers", "New ads", "Avg days live", "Landing pages & offers"]) {
+    for (const k of ["Total ads", "Active ads", "Winning ads", "Competitors", "New ads", "Avg days live", "Landing pages & offers"]) {
       expect(screen.getAllByText(k).length).toBeGreaterThan(0);
     }
     expect(screen.getAllByText(/Based on/).length).toBeGreaterThan(3);
     expect(screen.getByText("Launch frequency")).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Trending tags" })).toBeInTheDocument();
     expect(screen.getAllByRole("region", { name: /Rising creative elements|Scaling pages/ }).length).toBeGreaterThan(0);
-    for (const g of ["Hook style", "Angle", "Framework", "Framework element", "Concept", "Keyword / topic", "CTA", "Advertiser / domain", "Landing pages", "Country", "Category"]) {
+    for (const g of ["Hook style", "Angle", "Framework", "Framework element", "Concept", "Keyword / topic", "CTA", "Competitor / domain", "Landing pages", "Country", "Category"]) {
       expect(screen.getByRole("region", { name: g })).toBeInTheDocument();
     }
     expect(adCards().length).toBe(24);
@@ -222,7 +222,7 @@ describe("My Feeds page", () => {
   it("identity popover lists the sources with inline unmark / unfollow", () => {
     renderAt(<MyFeedsPage />, "/industry-insights/feeds");
     fireEvent.click(screen.getByRole("button", { name: /See what feeds My Feeds/ }));
-    expect(screen.getByText("Competitors")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Competitors" })).toBeInTheDocument();
     expect(screen.getByText("Followed pages")).toBeInTheDocument();
     expect(screen.getByText("Followed industries")).toBeInTheDocument();
     const prefsBefore = getUserPrefs();

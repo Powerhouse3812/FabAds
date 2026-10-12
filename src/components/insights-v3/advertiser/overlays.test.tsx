@@ -107,7 +107,7 @@ describe("AdvertiserDetail", () => {
     const other = INDEX.universe.industries.find((i) => !has.has(i.id));
     expect(other).toBeTruthy();
     show(<AdvertiserDetail kind="page" id={topPage.id} nav={nav()} />, `/industry-insights/advertisers?industry=${other!.id}`);
-    expect(screen.getByText(/No ads from this advertiser in the current scope/)).toBeInTheDocument();
+    expect(screen.getByText(/No ads from this competitor in the current scope/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Reset scope/ })).toBeInTheDocument();
   });
 
@@ -122,7 +122,7 @@ describe("AdvertiserDetail", () => {
 describe("LandingPageDetail", () => {
   it("renders capture, funnel, ads + advertisers and creative mix", () => {
     show(<LandingPageDetail id={lpWithAds.id} nav={nav()} />);
-    for (const t of ["Page capture", "Funnel", "Ads sending traffic here", "Advertisers using this page"]) {
+    for (const t of ["Page capture", "Funnel", "Ads sending traffic here", "Competitors using this page"]) {
       expect(screen.getAllByText(t).length).toBeGreaterThan(0);
     }
     expect(screen.getByText(/Creative mix/)).toBeInTheDocument();
@@ -169,7 +169,7 @@ describe("LandingPageDetail", () => {
 describe("OfferDetail", () => {
   it("renders landing pages pointing here, ads, advertisers, creative mix", () => {
     show(<OfferDetail id={offer.id} nav={nav()} />);
-    for (const t of ["Landing pages pointing here", "Ads sending traffic to this offer", "Advertisers and funnels"]) {
+    for (const t of ["Landing pages pointing here", "Ads sending traffic to this offer", "Competitors and funnels"]) {
       expect(screen.getAllByText(t).length).toBeGreaterThan(0);
     }
     expect(screen.getAllByText(/Based on/).length).toBeGreaterThan(2);

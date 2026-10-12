@@ -421,7 +421,7 @@ export function scoreAd(input: ScoreInput): AiScore {
       : cloneCount > 0
         ? `${cloneCount} competitor clone${cloneCount === 1 ? "" : "s"}`
         : "no clones yet",
-    examples: clonesAvailable && cloneCount > 0 ? [`${cloneCount} clone${cloneCount === 1 ? "" : "s"} seen across advertisers`] : [],
+    examples: clonesAvailable && cloneCount > 0 ? [`${cloneCount} clone${cloneCount === 1 ? "" : "s"} seen across competitors`] : [],
   };
 
   const c = craftScore(input);

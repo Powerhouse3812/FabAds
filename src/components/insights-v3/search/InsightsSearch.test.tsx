@@ -93,7 +93,7 @@ describe("<InsightsSearch />", () => {
     expect(screen.queryByText(/in…/)).toBeNull();
     fireEvent.change(input, { target: { value: pageWord } });
     const summary = screen.getByRole("list", { name: /matches per section/i });
-    for (const label of ["My Feeds", "Discover", "Advertisers", "Creative elements", "Landing pages & offers", "Boards"]) {
+    for (const label of ["My Feeds", "Discover", "Competitors", "Creative elements", "Landing pages & offers", "Boards"]) {
       expect(within(summary).getByText(label)).toBeInTheDocument();
     }
     expect(screen.getByText(/See all \d+ in Discover/)).toBeInTheDocument();

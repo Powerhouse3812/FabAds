@@ -106,7 +106,7 @@ export function InsightsSearch({ variant = "default" }: { variant?: "default" | 
   return (
     <div
       ref={rootRef}
-      className={cn("relative w-full min-w-0", pill ? "sm:w-[310px]" : "sm:w-72")}
+      className={cn("relative w-full min-w-0", pill ? "sm:w-[230px]" : "sm:w-72")}
       onBlur={(e) => {
         // Popover-class surface: closing when focus leaves the whole widget is allowed.
         if (!rootRef.current?.contains(e.relatedTarget as Node | null)) close();
@@ -143,7 +143,7 @@ export function InsightsSearch({ variant = "default" }: { variant?: "default" | 
                 else inputRef.current?.blur();
               }
             }}
-            placeholder="Search ads, advertisers, hooks…"
+            placeholder="Search ads, competitors, hooks…"
             aria-label="Search Industry Insights V2"
             className="h-full w-full min-w-0 bg-transparent text-[13px] text-foreground outline-none placeholder:text-transparent sm:placeholder:text-muted-foreground"
           />

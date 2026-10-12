@@ -17,7 +17,7 @@ export type SearchScopeKey = "feeds" | "discover" | "advertisers" | "elements" |
 export const SEARCH_SCOPE_LABEL: Record<SearchScopeKey, string> = {
   feeds: "My Feeds",
   discover: "Discover",
-  advertisers: "Advertisers",
+  advertisers: "Competitors",
   elements: "Creative elements",
   "lp-offers": "Landing pages & offers",
   boards: "Boards",

@@ -98,7 +98,7 @@ export function InsightsPageLayout({
                   </span>
                 )}
               </h1>
-              {headerActions && <div className="flex items-center gap-2">{headerActions}</div>}
+              {headerActions && <div className="flex max-w-full flex-wrap items-center gap-2">{headerActions}</div>}
             </div>
           </div>
         </div>

@@ -1,22 +1,26 @@
 /**
  * Sorts for every list (spec tables). Stable: ties break by id ascending.
- * No likes / comments / shares sort anywhere.
+ * Likes / comments / shares sorts exist ONLY for My Feeds (FeedAdSort); ads without the metric go last.
  */
-import type { Ad, AdSort, AdvertiserSort, ElementSort, LandingPageSort } from "../types";
+import type { Ad, AdvertiserSort, ElementSort, FeedAdSort, LandingPageSort } from "../types";
 import { byKeys, toMs } from "./context";
 import type { AdvertiserRow, ElementRow, LandingPageRow } from "./rows";
 import { risingRank } from "./trends";
 
 const NULL_LAST = -1e15;
 
-export function sortAds(ads: Ad[], sort: AdSort): Ad[] {
+export function sortAds(ads: Ad[], sort: FeedAdSort): Ad[] {
   const first = (a: Ad) => toMs(a.firstSeenAt) ?? 0;
-  const cmp: Record<AdSort, (a: Ad, b: Ad) => number> = {
+  const cmp: Record<FeedAdSort, (a: Ad, b: Ad) => number> = {
     newest: byKeys<Ad>(first),
     oldest: byKeys<Ad>((a) => -first(a)),
     "longest-running": byKeys<Ad>((a) => a.daysLive ?? NULL_LAST),
     "most-cloned": byKeys<Ad>((a) => a.clones),
     "ai-score": byKeys<Ad>((a) => a.aiScore.total),
+    // Not every ad reports engagement: a null metric sorts after every reported one (0 is a real, reported value).
+    "most-liked": byKeys<Ad>((a) => a.engagement.likes ?? NULL_LAST),
+    "most-commented": byKeys<Ad>((a) => a.engagement.comments ?? NULL_LAST),
+    "most-shared": byKeys<Ad>((a) => a.engagement.shares ?? NULL_LAST),
   };
   return ads.slice().sort(cmp[sort]);
 }

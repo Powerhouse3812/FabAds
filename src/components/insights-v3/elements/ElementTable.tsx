@@ -190,8 +190,8 @@ const ElementTableRow = memo(function ElementTableRow({ row, type, scope, isNew 
       <td className="max-w-[260px] px-3 py-3">
         <div className="flex items-start gap-2.5">
           <ExampleThumb adId={row.exampleAdId} />
-          <ul className="min-w-0 space-y-0.5" aria-label="Advertisers using it most">
-            {row.topAdvertisers.length === 0 && <li className="text-xs text-muted-foreground">No advertiser data</li>}
+          <ul className="min-w-0 space-y-0.5" aria-label="Competitors using it most">
+            {row.topAdvertisers.length === 0 && <li className="text-xs text-muted-foreground">No competitor data</li>}
             {row.topAdvertisers.map((a) => (
               <li key={a.id} className="min-w-0">
                 <button
@@ -200,7 +200,7 @@ const ElementTableRow = memo(function ElementTableRow({ row, type, scope, isNew 
                     e.stopPropagation();
                     detail.push({ kind: "advertiser", advertiserKind: "page", id: a.id });
                   }}
-                  aria-label={`Open advertiser ${a.label}`}
+                  aria-label={`Open competitor ${a.label}`}
                   className="flex max-w-[170px] items-baseline gap-1.5 rounded-sm text-left text-xs text-foreground hover:text-primary-text hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <TruncatedText text={a.label} focusable={false} />
@@ -221,7 +221,7 @@ const ElementTableRow = memo(function ElementTableRow({ row, type, scope, isNew 
           </div>
           <div className="flex items-baseline gap-1.5">
             <dd className="font-mono text-sm font-semibold tabular-nums text-foreground">{fmtInt(row.advertiserCount)}</dd>
-            <dt className="text-muted-foreground">advertisers</dt>
+            <dt className="text-muted-foreground">competitors</dt>
           </div>
           <div className="flex items-baseline gap-1.5">
             <dd className="font-mono text-sm font-semibold tabular-nums text-foreground">
@@ -278,9 +278,9 @@ export function ElementTable({ rows, type, scope, newIds }: ElementTableProps) {
               </Th>
               <Th tip="New ads launched per bucket, with the change against the previous equal period.">Trend</Th>
               <Th tip="One example ad (a winner if there is one) and the pages running it most. Counts are ads.">
-                Example · top advertisers
+                Example · top competitors
               </Th>
-              <Th tip="Live ads, distinct advertisers, the longest run in days and total clones across every ad using it.">
+              <Th tip="Live ads, distinct competitors, the longest run in days and total clones across every ad using it.">
                 Market footprint
               </Th>
               <th scope="col" className={cn(TH, "text-right")}>

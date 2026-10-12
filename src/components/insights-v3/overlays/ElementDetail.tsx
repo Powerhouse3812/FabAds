@@ -153,11 +153,11 @@ export function ElementDetail({ elementType, id, nav }: { elementType: ElementTy
             emptyText="No industry data for these ads."
           />
           <MixList
-            title="Advertisers"
+            title="Competitors"
             unit={`share of ads using this ${what}`}
             items={d.whereItWorks.advertisers.items}
             basedOn={d.whereItWorks.advertisers.basedOn}
-            emptyText="No advertiser data for these ads."
+            emptyText="No competitor data for these ads."
             renderLabel={(it) => <ElementChip type="page" id={it.id} label={it.label} />}
           />
         </div>

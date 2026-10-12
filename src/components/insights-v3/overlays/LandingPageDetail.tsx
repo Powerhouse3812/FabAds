@@ -231,9 +231,9 @@ export function LandingPageDetail({ id, nav }: { id: string; nav: OverlayNav }) 
         emptyReason="No ad in the current scope sends traffic to this page."
       />
       <OverlaySection
-        title="Advertisers using this page"
+        title="Competitors using this page"
         basedOn={detail.advertisers.basedOn}
-        disabledReason={noAds ? "No advertiser in the current scope sends traffic to this page." : undefined}
+        disabledReason={noAds ? "No competitor in the current scope sends traffic to this page." : undefined}
         minHeight={110}
       >
         <SubGrid>

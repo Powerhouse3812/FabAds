@@ -5,3 +5,7 @@ export { FeedOverview } from "./FeedOverview";
 export { FeedCard } from "./FeedCard";
 export { FeedGrid } from "./FeedGrid";
 export { usePersistedFlag, FEED_FILTERS_KEY, FEED_OVERVIEW_KEY } from "./usePersistedFlag";
+export { FeedFilterPills } from "./FeedFilters";
+export { useFeedFilters } from "./useFeedFilters";
+export { EngagementSortNotice } from "./EngagementSortNotice";
+export { FeedHeaderActions } from "./FeedHeaderActions";

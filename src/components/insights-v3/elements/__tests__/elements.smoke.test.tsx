@@ -61,7 +61,7 @@ describe("ElementsPage", () => {
     expect(screen.getByText("Rising frameworks")).toBeInTheDocument();
     expect(screen.getByText("Scaling frameworks")).toBeInTheDocument();
     expect(screen.getByText("Market footprint")).toBeInTheDocument();
-    expect(screen.getByText("Example · top advertisers")).toBeInTheDocument();
+    expect(screen.getByText("Example · top competitors")).toBeInTheDocument();
     expect(screen.getAllByRole("row").length).toBeGreaterThan(5);
   });
 

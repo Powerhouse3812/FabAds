@@ -19,7 +19,7 @@ function NothingFollowed() {
       body={
         <>
           My Feeds shows ads from three sources: competitors you mark (domains and pages), pages you follow and industries you follow. Pick
-          any of them on the Advertiser page and their ads land here.
+          any of them on the Competitors page and their ads land here.
         </>
       }
       action={

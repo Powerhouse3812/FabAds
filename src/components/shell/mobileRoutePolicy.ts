@@ -150,9 +150,9 @@ export const MOBILE_ROUTE_POLICY: MobilePolicyRule[] = [
   {
     pattern: "/industry-insights/advertisers",
     support: "blocked",
-    label: "Advertiser",
+    label: "Competitors",
     reason:
-      "The advertiser list pairs a wide multi-column table with a launch trend per row that needs real width to read.",
+      "The competitor list pairs a wide multi-column table with a launch trend per row that needs real width to read.",
     fallback: TO_V3_DISCOVER,
   },
   {

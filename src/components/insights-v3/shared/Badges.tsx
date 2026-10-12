@@ -65,12 +65,23 @@ const TIER_STYLE: Record<AiScoreTier, string> = {
   weak: "border-error-text/30 bg-error-text/10 text-error-text",
 };
 
-/** Total + tier, colour by token. */
-export function AiScoreBadge({ score, className }: { score: AiScore; className?: string }) {
+/**
+ * Solid, readable-on-any-background fills for My Feeds cards (the tints above vanish on a photo).
+ * `text-background` flips with the theme, so contrast holds in light and dark.
+ */
+const TIER_STYLE_SOLID: Record<AiScoreTier, string> = {
+  elite: "border-transparent bg-primary text-primary-foreground",
+  strong: "border-transparent bg-success-text text-background",
+  average: "border-transparent bg-warning-text text-background",
+  weak: "border-transparent bg-error-text text-background",
+};
+
+/** Total + tier, colour by token. `solid` = filled tag (My Feeds card), otherwise the tinted badge. */
+export function AiScoreBadge({ score, className, solid }: { score: AiScore; className?: string; solid?: boolean }) {
   const tip = `AI score ${score.total}/100 · ${TIER_LABEL[score.tier]}. Elite ≥ ${AI_SCORE_TIER_MIN.elite}, Strong ≥ ${AI_SCORE_TIER_MIN.strong}, Average ≥ ${AI_SCORE_TIER_MIN.average}.`;
   return (
     <Hint content={tip}>
-      <span aria-label={tip} className={cn(PILL, TIER_STYLE[score.tier], className)}>
+      <span aria-label={tip} className={cn(PILL, (solid ? TIER_STYLE_SOLID : TIER_STYLE)[score.tier], className)}>
         <span>AI</span>
         <span className="font-mono tabular-nums">{score.total}</span>
         <span className="opacity-80">{TIER_LABEL[score.tier]}</span>
@@ -132,7 +143,7 @@ export function DaysLive({ days, className }: { days: number | null; className?:
 export function ClonesPill({ clones, className }: { clones: number; className?: string }) {
   const tip =
     clones > 0
-      ? "Copies of this creative seen across other advertisers — a strong signal it works."
+      ? "Copies of this creative seen across other competitors — a strong signal it works."
       : "No copies seen. This is the original only.";
   return (
     <Hint content={tip}>

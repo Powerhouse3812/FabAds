@@ -19,20 +19,36 @@ import {
   adsInBaseScope,
   adsInScope,
   aiSummary,
+  applyFeedFilters,
   categoryOptions,
   discoverKpis,
+  feedFilterOptions,
   filterByTagUnion,
   groupKeysForScope,
   industryOptions,
   launchFrequency,
   scopeLabel,
+  FEED_FILTER_QP,
+  hasFeedFilters,
   sortAds,
   tagGroups,
   trendingTags,
   type SelectorCtx,
 } from "@/lib/insights-v3/selectors";
 import { useLastVisitAt, useUserPrefs } from "@/lib/insights-v3/stores";
-import { AD_SORT_LABEL, DEFAULT_SCOPE, PERIOD_OPTIONS, QP, type Ad, type AdSort, type PeriodKey, type Scope } from "@/lib/insights-v3/types";
+import {
+  AD_SORT_LABEL,
+  DEFAULT_SCOPE,
+  ENGAGEMENT_SORT_FIELD,
+  FEED_AD_SORT_LABEL,
+  PERIOD_OPTIONS,
+  QP,
+  type Ad,
+  type AdSort,
+  type FeedAdSort,
+  type PeriodKey,
+  type Scope,
+} from "@/lib/insights-v3/types";
 import {
   TruncatedText,
   EmptyResults,
@@ -42,7 +58,6 @@ import {
   InsightsPageLayout,
   OverviewShell,
   ScopeBar,
-  ScopePills,
   SelectedChips,
   SortControl,
   TopTenGroups,
@@ -53,7 +68,18 @@ import {
   useSelectedTags,
 } from "@/components/insights-v3/shared";
 import { SEARCH_QUERY_PARAM } from "@/components/insights-v3/search/InsightsSearch";
-import { FEED_FILTERS_KEY, FEED_OVERVIEW_KEY, FeedGrid, FeedOverview, FeedToolbar, QuickFilters, usePersistedFlag } from "@/components/insights-v3/feeds";
+import {
+  EngagementSortNotice,
+  FEED_FILTERS_KEY,
+  FEED_OVERVIEW_KEY,
+  FeedGrid,
+  FeedHeaderActions,
+  FeedOverview,
+  FeedToolbar,
+  QuickFilters,
+  useFeedFilters,
+  usePersistedFlag,
+} from "@/components/insights-v3/feeds";
 import { AdGrid } from "./AdGrid";
 import { RisingScaling } from "./RisingScaling";
 import { TrendingTags } from "./TrendingTags";
@@ -61,6 +87,7 @@ import { filterAdsByQuery } from "./textQuery";
 
 export const PAGE_SIZE = 24;
 const AD_SORTS = Object.keys(AD_SORT_LABEL) as AdSort[];
+const FEED_SORTS = Object.keys(FEED_AD_SORT_LABEL) as FeedAdSort[];
 
 export interface AdsMarketViewProps {
   title: string;
@@ -113,7 +140,9 @@ export function AdsMarketView({
 
   const [urlScope, setScope] = useInsightsScope();
   const tags = useSelectedTags();
-  const [sort, setSort] = useListSort<AdSort>(AD_SORTS, "newest");
+  // My Feeds adds the three engagement sorts (with a warning); Discover keeps exactly the five spec sorts.
+  const [sort, setSort] = useListSort<FeedAdSort>(feed ? FEED_SORTS : AD_SORTS, "newest");
+  const feedFilters = useFeedFilters();
   const lastVisitAt = useLastVisitAt();
   const prefs = useUserPrefs();
 
@@ -123,8 +152,20 @@ export function AdsMarketView({
     [urlScope, showPrefsToggle],
   );
   // The text search narrows the SOURCE, before scope and tags, so KPIs, groups and totals all follow it.
-  const source = useMemo(() => (forcedEmpty ? [] : filterAdsByQuery(sourceAds, query)), [forcedEmpty, sourceAds, query]);
+  const searchSource = useMemo(() => (forcedEmpty ? [] : filterAdsByQuery(sourceAds, query)), [forcedEmpty, sourceAds, query]);
+  // My Feeds' toolbar filters (Domain, Page, Status, Running days, Similar ads) narrow the source the same way.
+  const filtersActive = feed && hasFeedFilters(feedFilters.filters);
+  const source = useMemo(
+    () => (feed ? applyFeedFilters(searchSource, feedFilters.filters) : searchSource),
+    [feed, searchSource, feedFilters.filters],
+  );
   const ctx = useMemo<SelectorCtx>(() => ({ now: MODULE_NOW, lastVisitAt, prefs }), [lastVisitAt, prefs]);
+
+  // Filter options count the ads BEFORE the filters (after scope + search), so a pick never hides its siblings.
+  const filterOptions = useMemo(
+    () => (feed ? feedFilterOptions(adsInScope(searchSource, scope, ctx)) : null),
+    [feed, searchSource, scope, ctx],
+  );
 
   /* scope-derived data (none of it depends on the selected tags) */
   const base = useMemo(() => adsInBaseScope(source, scope, ctx), [source, scope, ctx]);
@@ -160,7 +201,7 @@ export function AdsMarketView({
   const sorted = useMemo(() => sortAds(filtered, sort), [filtered, sort]);
 
   /* paging: 24 at a time, reset whenever the result set changes */
-  const resetKey = `${query}|${scope.industry}|${scope.category}|${scope.period}|${scope.myPrefsOnly}|${JSON.stringify(tags.selected)}|${sort}`;
+  const resetKey = `${query}|${scope.industry}|${scope.category}|${scope.period}|${scope.myPrefsOnly}|${JSON.stringify(tags.selected)}|${JSON.stringify(feedFilters.filters)}|${sort}`;
   const [pager, setPager] = useState({ key: resetKey, n: PAGE_SIZE });
   const shown = pager.key === resetKey ? pager.n : PAGE_SIZE;
   const total = sorted.length;
@@ -179,7 +220,10 @@ export function AdsMarketView({
         (prev) => {
           const next = new URLSearchParams(prev);
           next.delete(SEARCH_QUERY_PARAM);
-          if (alsoTags) Array.from(next.keys()).filter((k) => k.startsWith(QP.tagPrefix)).forEach((k) => next.delete(k));
+          if (alsoTags) {
+            Array.from(next.keys()).filter((k) => k.startsWith(QP.tagPrefix)).forEach((k) => next.delete(k));
+            Object.values(FEED_FILTER_QP).forEach((k) => next.delete(k));
+          }
           return next;
         },
         { replace: true, state: location.state },
@@ -190,6 +234,12 @@ export function AdsMarketView({
   const noSource = !loading && (sourceEmpty || forcedEmpty) && !!emptyState;
   const noAdsInScope = !loading && !noSource && scoped.length === 0;
   const noMatches = !loading && !noSource && scoped.length > 0 && total === 0;
+  // Engagement sorts rank only the ads that report the metric; the page says so (see EngagementSortNotice).
+  const engagementField = sort in ENGAGEMENT_SORT_FIELD ? ENGAGEMENT_SORT_FIELD[sort as keyof typeof ENGAGEMENT_SORT_FIELD] : null;
+  const reportedCount = useMemo(
+    () => (engagementField ? sorted.filter((a) => a.engagement[engagementField] != null).length : 0),
+    [sorted, engagementField],
+  );
 
   const scopePillProps = {
     scope,
@@ -213,13 +263,16 @@ export function AdsMarketView({
   const scopeBar = (compact: boolean) =>
     feed ? (
       <FeedToolbar
-        scopeProps={scopePillProps}
-        prefs={prefs}
         appliedCount={appliedCount}
         filtersOpen={filtersOpen}
         onToggleFilters={() => setFiltersOpen(!filtersOpen)}
         filtersId={loading ? undefined : filtersPanelId}
-        compact={compact}
+        filterOptions={filterOptions!}
+        filters={feedFilters.filters}
+        onFilterChange={feedFilters.set}
+        onClearFilters={feedFilters.clearAll}
+        sort={sort}
+        onSort={setSort}
         disabled={noSource}
       />
     ) : (
@@ -331,7 +384,16 @@ export function AdsMarketView({
             onClearAll={tags.clearAll}
             total={total}
             noun="ads"
-            rightSlot={<SortControl value={sort} options={AD_SORT_LABEL} onChange={setSort} />}
+            // My Feeds keeps Sort in its toolbar row; Discover keeps it here.
+            rightSlot={feed ? undefined : <SortControl value={sort as AdSort} options={AD_SORT_LABEL} onChange={setSort} />}
+          />
+        )}
+        {feed && engagementField && !noMatches && (
+          <EngagementSortNotice
+            field={engagementField}
+            reported={reportedCount}
+            total={total}
+            onSwitch={() => setSort("newest")}
           />
         )}
       </div>
@@ -352,6 +414,22 @@ export function AdsMarketView({
             className="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
             Clear search
+          </button>
+        }
+      />
+    );
+  else if (noAdsInScope && filtersActive)
+    list = (
+      <EmptyState
+        title="No ads match these filters"
+        body="Domain, Page, Status, Running days and Similar ads narrow the whole page. Remove a filter, or widen the scope, to see more ads."
+        action={
+          <button
+            type="button"
+            onClick={feedFilters.clearAll}
+            className="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          >
+            Clear filters
           </button>
         }
       />
@@ -386,7 +464,14 @@ export function AdsMarketView({
         title={title}
         count={loading || noSource ? undefined : total}
         countNoun="ads"
-        headerActions={feed ? (noSource ? undefined : <ScopePills kind="period" {...scopePillProps} />) : headerActions}
+        headerActions={
+          feed ? (
+            // Industry · Category · Period (calendar) + the sources gear, top-right of the title row. They hide with it on scroll.
+            <FeedHeaderActions scopeProps={scopePillProps} prefs={prefs} showScope={!noSource} />
+          ) : (
+            headerActions
+          )
+        }
         scopeBar={scopeBar}
         overview={overview}
         chips={chips}

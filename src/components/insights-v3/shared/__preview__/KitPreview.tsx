@@ -141,7 +141,7 @@ const GROUPS: TopTenGroupData[] = [
   },
   {
     key: "advertiser",
-    label: "Advertiser / domain",
+    label: "Competitor / domain",
     options: options(["napchief.com", "Mamaearth", "boat-lifestyle.com", "SleepyOwl Mattress Co.", LONG_NAME, "amalfa.in", "Mensa Brands"], 4),
   },
   { key: "country", label: "Country", options: options(["IN", "US", "GB", "AE", "CA", "AU", "DE", "SG"], 6, [7]) },
@@ -167,7 +167,7 @@ const KPIS: Kpi[] = [
   { key: "total", label: "Total ads", value: 6598, display: "6,598", sub: "+412 this period", tooltip: "All ads in the current scope." },
   { key: "active", label: "Active ads", value: 3120, display: "3,120", sub: "47% of total", tooltip: "Ads seen live in the last 14 days." },
   { key: "winning", label: "Winning ads", value: 284, display: "284", sub: "4.3% of total", tooltip: "Seen live, 14+ days running, 2+ clones." },
-  { key: "advertisers", label: "Advertisers", value: 947, display: "947", sub: "−18 vs previous", tooltip: "Advertisers with ads in scope." },
+  { key: "advertisers", label: "Competitors", value: 947, display: "947", sub: "−18 vs previous", tooltip: "Competitors with ads in scope." },
   { key: "new", label: "New ads", value: 37, display: "37", sub: "since your last visit", tooltip: "Added since your last visit." },
   { key: "days", label: "Avg days live", value: 41, display: "41 days", tooltip: "Average running days across ads in scope." },
   { key: "lps", label: "Landing pages & offers", value: 1530, display: "1,530", sub: "212 offers", tooltip: "Landing pages and offers used by ads in scope." },
@@ -183,7 +183,7 @@ const KPIS_PARTIAL: Kpi[] = KPIS.map((k) =>
 const SUMMARY: AiSummary = {
   ads: 6598,
   text:
-    "Lead Gen advertisers lean on pain-callout hooks and a Problem–Agitate–Solve structure, with Credit Cards and Auto Insurance carrying the most volume. " +
+    "Lead Gen competitors lean on pain-callout hooks and a Problem–Agitate–Solve structure, with Credit Cards and Auto Insurance carrying the most volume. " +
     "Ads that run 30+ days mostly pair a direct-offer CTA with a quiz funnel. Volume shows what is popular, not what performs best, so read the winners list before copying a pattern.",
 };
 
@@ -319,7 +319,7 @@ export default function KitPreview() {
             body="My Feeds shows ads from pages and domains you mark as competitors, pages you follow and industries you follow."
             action={
               <a href="/industry-insights/advertisers" className="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground">
-                Go to Advertiser
+                Go to Competitors
               </a>
             }
           />
@@ -538,7 +538,7 @@ export default function KitPreview() {
         open={overlayDemo}
         title={LONG_NAME}
         typeLabel="Landing page"
-        subtitle={`Seen on ${fmtInt(1840)} ads across 62 advertisers`}
+        subtitle={`Seen on ${fmtInt(1840)} ads across 62 competitors`}
         onClose={() => setOverlayDemo(false)}
       >
         <OverlaySection title="Page capture" basedOn={1840}>

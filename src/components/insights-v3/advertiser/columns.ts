@@ -23,7 +23,7 @@ export const LP_COLUMNS: Column[] = [
   { key: "offer", label: "Offer", width: 200 },
   { key: "funnel", label: "Funnel type", width: 130 },
   { key: "ads", label: "Ads (total + active)", width: 120 },
-  { key: "advertisers", label: "Advertisers", width: 100 },
+  { key: "advertisers", label: "Competitors", width: 100 },
   { key: "winners", label: "Winners", width: 84 },
   { key: "actions", label: "Actions", width: 90, stickyRight: true },
 ];

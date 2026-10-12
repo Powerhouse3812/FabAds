@@ -10,6 +10,7 @@ import type {
   Ad, Advertiser, AdvertiserKind, Category, CategoryId, CreativeElement, ElementType, FrameworkElementKey,
   Industry, IndustryId, LandingPage,
 } from "../types";
+import { applyDemoCoverage } from "./demoCoverage";
 import { DEFAULT_SEED, generateUniverse } from "./generate";
 import type { Universe } from "./generate";
 import { COUNTRY_NAME, FRAMEWORK_ELEMENTS } from "./vocab";
@@ -115,7 +116,8 @@ export function buildIndex(universe: Universe): DataIndex {
 
 /** `Date.now()` captured once at module load. */
 export const MODULE_NOW = Date.now();
-export const UNIVERSE: Universe = generateUniverse({ seed: DEFAULT_SEED, now: MODULE_NOW });
+/** The raw generator output plus the deterministic demo-coverage overrides (see ./demoCoverage). */
+export const UNIVERSE: Universe = applyDemoCoverage(generateUniverse({ seed: DEFAULT_SEED, now: MODULE_NOW }));
 export const INDEX: DataIndex = buildIndex(UNIVERSE);
 
 /* ── lookups ────────────────────────────────────────────────────────────── */

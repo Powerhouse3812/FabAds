@@ -197,7 +197,7 @@ export const MODULES: ModuleDef[] = [
     subItems: [
       { label: "My Feeds",                  path: "/industry-insights/feeds",       icon: Rss, countKey: "feeds" },
       { label: "Discover",                  path: "/industry-insights/discover",    icon: Compass, countKey: "discover" },
-      { label: "Advertiser",                path: "/industry-insights/advertisers", icon: Building2, countKey: "advertisers" },
+      { label: "Competitors",               path: "/industry-insights/advertisers", icon: Building2, countKey: "advertisers" },
       { label: "Creative Element Insights", path: "/industry-insights/elements",    icon: Shapes, countKey: "elements" },
       { label: "Saved Ads",                 path: "/industry-insights/saved",       icon: Bookmark, countKey: "saved" },
       { label: "Boards",                    path: "/industry-insights/boards",      icon: Layers, countKey: "boards" },
