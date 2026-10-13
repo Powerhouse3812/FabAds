@@ -2,14 +2,13 @@
  * Creative breakdown, ONE merged view:
  *  1. framework, hook (style + verbatim line), angle, concept as clickable
  *     ElementChips (each opens its detail overlay) with Save, Download and Use in Genie
- *  2. script + storyboard + timeline TOGETHER, one row per beat from
- *     `analysis.beats` (element label, text, visual, start to end for video)
- *  3. transcript (collapsible)
+ *  2. script + framework row + storyboard TOGETHER: a Video Sage style segmented
+ *     row of framework elements (in beat order, plain text, not interactive) and one
+ *     row per beat from `analysis.beats` (element label, text, visual, start to end)
+ * The transcript lives in the Landing page section, not here.
  * Every missing piece is a DisabledSection that says why. Layout never collapses.
  */
-import { useState } from "react";
-import { ChevronDown, ChevronRight, Eye } from "lucide-react";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Eye } from "lucide-react";
 import { FRAMEWORK_ELEMENT_LABEL, getElement } from "@/lib/insights-v3/data";
 import { buildDownloads } from "@/lib/insights-v3/selectors";
 import { useBoardCountForItem } from "@/lib/insights-v3/stores";
@@ -19,7 +18,6 @@ import {
   DisabledSection,
   ElementActions,
   ElementChip,
-  Hint,
   OverlaySection,
 } from "@/components/insights-v3/shared";
 import { UseInGenie } from "@/components/insights-v3/genie/UseInGenie";
@@ -92,31 +90,48 @@ function fmtSec(n: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 
-function Timeline({ beats }: { beats: ScriptBeat[] }) {
-  const timed = beats.filter((b) => b.start !== null && b.end !== null && b.end > b.start);
-  if (timed.length < 2) return null;
-  const total = Math.max(...timed.map((b) => b.end as number));
-  if (total <= 0) return null;
+/** Neighbouring segments step through three tints so each one reads on its own. */
+const SEGMENT_FILL = ["bg-primary/15", "bg-primary/25", "bg-primary/35"] as const;
+
+/**
+ * Video Sage style segmented row (see components/video-sage/FrameworkTimeline): one
+ * segment per beat, in order. Width follows duration when every beat is timed, else
+ * equal. Not interactive: order, label and timing are plain visible text. Segments
+ * wrap onto a new line rather than hiding a label on a narrow drawer.
+ */
+function FrameworkRow({ beats }: { beats: ScriptBeat[] }) {
+  const allTimed = beats.every((b) => b.start !== null && b.end !== null && (b.end as number) > (b.start as number));
   return (
-    <div className="mb-3" role="img" aria-label={`Timeline: ${timed.length} beats over ${fmtSec(total)}`}>
-      <div className="flex h-3 w-full gap-px overflow-hidden rounded-full bg-muted">
-        {timed.map((b, i) => {
-          const w = (((b.end as number) - (b.start as number)) / total) * 100;
+    <div className="mb-3">
+      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        Framework elements, in order
+      </p>
+      <ol className="flex flex-wrap gap-0.5">
+        {beats.map((b, i) => {
           const label = FRAMEWORK_ELEMENT_LABEL[b.element] ?? b.element;
+          const weight = allTimed ? (b.end as number) - (b.start as number) : 1;
+          const timed = b.start !== null && b.end !== null;
           return (
-            <Hint key={i} content={`${label} · ${fmtSec(b.start as number)} to ${fmtSec(b.end as number)}`}>
-              <span
-                className={cn("h-full", i % 2 === 0 ? "bg-primary" : "bg-primary/50")}
-                style={{ width: `${w}%` }}
-              />
-            </Hint>
+            <li
+              key={i}
+              data-testid="framework-segment"
+              className={cn(
+                "flex min-w-[76px] flex-col justify-between gap-1 rounded-md px-2 py-1.5",
+                SEGMENT_FILL[i % SEGMENT_FILL.length],
+              )}
+              style={{ flex: `${weight} 1 0%` }}
+            >
+              <span className="font-mono text-[10px] font-semibold tabular-nums text-primary-text">{i + 1}</span>
+              <span className="break-words text-[11px] font-semibold leading-tight text-foreground">{label}</span>
+              {timed && (
+                <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
+                  {fmtSec(b.start as number)}–{fmtSec(b.end as number)}
+                </span>
+              )}
+            </li>
           );
         })}
-      </div>
-      <div className="mt-1 flex justify-between font-mono text-[10px] tabular-nums text-muted-foreground">
-        <span>0:00</span>
-        <span>{fmtSec(total)}</span>
-      </div>
+      </ol>
     </div>
   );
 }
@@ -148,7 +163,7 @@ function ScriptSection({ ad }: { ad: Ad }) {
         </h4>
         <UseInGenie target={adRef} label="Use this script in Genie" />
       </div>
-      <Timeline beats={beats} />
+      <FrameworkRow beats={beats} />
       <ol className="divide-y divide-border">
         {beats.map((b, i) => {
           const timed = b.start !== null && b.end !== null;
@@ -184,34 +199,6 @@ function ScriptSection({ ad }: { ad: Ad }) {
   );
 }
 
-function TranscriptSection({ ad }: { ad: Ad }) {
-  const [open, setOpen] = useState(false);
-  const text = ad.analysis.transcript;
-  if (!text) {
-    return (
-      <DisabledSection
-        title="Transcript"
-        reason={ad.mediaKind === "video" ? "No transcript was captured for this video ad." : "No transcript: image ad."}
-        minHeight={96}
-      />
-    );
-  }
-  return (
-    <Collapsible open={open} onOpenChange={setOpen} className="rounded-xl border border-border bg-background">
-      <CollapsibleTrigger className="flex w-full items-center gap-1.5 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-        {open ? <ChevronDown className="h-4 w-4 text-muted-foreground" aria-hidden="true" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />}
-        Transcript
-        <span className="font-mono text-xs font-normal tabular-nums text-muted-foreground">
-          ({text.split(/\s+/).filter(Boolean).length} words)
-        </span>
-      </CollapsibleTrigger>
-      <CollapsibleContent className="px-3 pb-3">
-        <p className="whitespace-pre-line break-words text-[13px] leading-5 text-foreground/90">{text}</p>
-      </CollapsibleContent>
-    </Collapsible>
-  );
-}
-
 /* ── section ──────────────────────────────────────────────────────────── */
 
 export function CreativeBreakdown({ ad }: { ad: Ad }) {
@@ -231,7 +218,6 @@ export function CreativeBreakdown({ ad }: { ad: Ad }) {
 
       <div className="mt-3 space-y-2">
         <ScriptSection ad={ad} />
-        <TranscriptSection ad={ad} />
       </div>
     </OverlaySection>
   );

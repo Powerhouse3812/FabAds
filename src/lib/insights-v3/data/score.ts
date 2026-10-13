@@ -1,10 +1,16 @@
 /**
- * AI score — reference A §3, implemented as-is (Q6).
+ * AI score — reference A §3, with one deliberate change (Maalik, Oct 2026):
+ * ENGAGEMENT (likes, comments, shares) NEVER counts.
  *
- * Parts (base weights, sum 100): longevity 18 · likes 16 · comments & shares 8 ·
- * clones 16 · craft 42, plus a separate branded penalty (−12 / −6).
- * Missing parts score 0 with max 0; their weight is only partly recovered
- * (RECOVERED_SHARE 0.6) and spread over the available parts.
+ * Parts that score: longevity · clones · craft, plus a separate branded penalty
+ * (−12 / −6). The reference base weights (longevity 18 · likes 16 · comments &
+ * shares 8 · clones 16 · craft 42) are kept in SCORE_WEIGHTS, but likes and
+ * comments & shares are always treated as "not reported": they emit no part, so
+ * the UI, downloads and the explanation never show a total that includes hidden
+ * points. Their weight is partly recovered (RECOVERED_SHARE 0.6) and spread over
+ * the parts that remain (a clone-less ad recovers the clone weight the same way).
+ * Likes / comments / shares stay on `ScoreInput` so callers don't change, and
+ * engagement stays its own drawer section and a My Feeds sort.
  * Tiers: Elite ≥80 · Strong ≥60 · Average ≥40 · Weak <40.
  *
  * Note on clones: the reference counts the original as 1 and uses
@@ -90,12 +96,6 @@ function words(s: string): string[] {
 
 function cleanCopy(s: string): string {
   return s.replace(/\s+/g, " ").trim();
-}
-
-function compact(n: number): string {
-  if (n >= 1_000_000) return `${round1(n / 1_000_000)}M`;
-  if (n >= 1_000) return `${round1(n / 1_000)}K`;
-  return String(n);
 }
 
 function quote(s: string, max = 90): string {
@@ -358,16 +358,12 @@ function offerSnippet(copy: string, idx: number): string {
 /* ── main ───────────────────────────────────────────────────────────────── */
 
 export function scoreAd(input: ScoreInput): AiScore {
-  const likesAvailable = input.likes != null;
-  const socialAvailable = input.comments != null || input.shares != null;
+  // Engagement never feeds the score (see the file header): no likes / social
+  // part is built, so their weight is redistributed like any unreported part.
   const clonesAvailable = input.clones != null;
 
   const availableMax =
-    SCORE_WEIGHTS.longevity +
-    SCORE_WEIGHTS.craft +
-    (likesAvailable ? SCORE_WEIGHTS.likes : 0) +
-    (socialAvailable ? SCORE_WEIGHTS.social : 0) +
-    (clonesAvailable ? SCORE_WEIGHTS.clones : 0);
+    SCORE_WEIGHTS.longevity + SCORE_WEIGHTS.craft + (clonesAvailable ? SCORE_WEIGHTS.clones : 0);
   const factor = redistributionFactor(availableMax);
 
   const runDays = input.daysLive ?? 0;
@@ -380,32 +376,6 @@ export function scoreAd(input: ScoreInput): AiScore {
     available: true,
     reason: input.daysLive != null ? `${input.daysLive} days live` : "no run length reported",
     examples: input.daysLive != null ? [`${input.daysLive} days live`] : ["Start date unknown"],
-  };
-
-  const likesMax = likesAvailable ? round1(SCORE_WEIGHTS.likes * factor) : 0;
-  const likes: AiScorePart = {
-    key: "likes",
-    label: "Likes",
-    value: likesAvailable ? curve(input.likes ?? 0, SCORE_BENCHMARKS.likes, likesMax) : 0,
-    max: likesMax,
-    available: likesAvailable,
-    reason: likesAvailable ? `${compact(input.likes ?? 0)} likes` : "likes not reported",
-    examples: likesAvailable ? [`${compact(input.likes ?? 0)} likes`] : [],
-  };
-
-  const socialTotal = (input.comments ?? 0) + (input.shares ?? 0);
-  const socialMax = socialAvailable ? round1(SCORE_WEIGHTS.social * factor) : 0;
-  const socialExamples: string[] = [];
-  if (input.comments != null) socialExamples.push(`${compact(input.comments)} comments`);
-  if (input.shares != null) socialExamples.push(`${compact(input.shares)} shares`);
-  const social: AiScorePart = {
-    key: "social",
-    label: "Comments & shares",
-    value: socialAvailable ? curve(socialTotal, SCORE_BENCHMARKS.social, socialMax) : 0,
-    max: socialMax,
-    available: socialAvailable,
-    reason: socialAvailable ? `${compact(socialTotal)} comments + shares` : "comments and shares not reported",
-    examples: socialExamples,
   };
 
   const clonesMax = clonesAvailable ? round1(SCORE_WEIGHTS.clones * factor) : 0;
@@ -447,7 +417,7 @@ export function scoreAd(input: ScoreInput): AiScore {
     examples: c.penaltyReason ? [c.penaltyReason] : [],
   };
 
-  const parts = [longevity, likes, social, clones, craft, penalty];
+  const parts = [longevity, clones, craft, penalty];
   const sum = parts.reduce((s, p) => s + p.value, 0);
   const total = Math.max(1, Math.min(100, Math.round(sum)));
   const tier = scoreTier(total);
@@ -460,7 +430,6 @@ function explain(total: number, tier: AiScoreTier, parts: AiScorePart[], input: 
   const byKey = Object.fromEntries(parts.map((p) => [p.key, p])) as Record<string, AiScorePart>;
   if (input.daysLive != null && input.daysLive > 0) drivers.push(`${input.daysLive} days live`);
   if ((input.clones ?? 0) > 0) drivers.push(`${input.clones} clone${input.clones === 1 ? "" : "s"}`);
-  if (byKey.likes.available && (input.likes ?? 0) > 0) drivers.push(`${compact(input.likes ?? 0)} likes`);
   const craftNotes = byKey.craft.reason;
   const penaltyValue = byKey["branded-penalty"].value;
   const penaltyClause = penaltyValue < 0 ? `, minus a branded penalty of ${Math.abs(penaltyValue)}` : "";

@@ -55,26 +55,23 @@ describe("AI score — curve + tiers", () => {
 });
 
 describe("AI score — missing-data redistribution (RECOVERED_SHARE 0.6)", () => {
-  it("all parts present → ×1.0", () => {
+  it("full reference weights (engagement included) → ×1.0", () => {
     expect(RECOVERED_SHARE).toBe(0.6);
     expect(redistributionFactor(100)).toBe(1);
   });
 
-  it("only longevity + craft → ×1.4 (longevity max 25.2, craft max 58.8), capped at 84", () => {
+  it("only longevity + craft (no clone data) → ×1.4 (longevity max 25.2, craft max 58.8), capped at 84", () => {
     expect(redistributionFactor(60)).toBeCloseTo(1.4, 6);
     const s = scoreAd(strongCopy);
     const part = (k: string) => s.parts.find((p) => p.key === k);
     expect(part("longevity")?.max).toBe(25.2);
     expect(part("craft")?.max).toBe(58.8);
-    expect(part("likes")?.available).toBe(false);
-    expect(part("likes")?.max).toBe(0);
-    expect(part("social")?.available).toBe(false);
     expect(part("clones")?.available).toBe(false);
     expect(s.total).toBe(84);
     expect(s.tier).toBe("elite");
   });
 
-  it("clones present, no likes/social → 76 → 90.4 → ×1.189", () => {
+  it("clones present → 76 → 90.4 → ×1.189 (the most any ad can reach is 90)", () => {
     expect(redistributionFactor(76)).toBeCloseTo(90.4 / 76, 6);
     const s = scoreAd({ ...strongCopy, clones: 10 });
     expect(s.parts.find((p) => p.key === "longevity")?.max).toBe(21.4);
@@ -82,15 +79,32 @@ describe("AI score — missing-data redistribution (RECOVERED_SHARE 0.6)", () =>
     expect(s.total).toBeLessThanOrEqual(91);
   });
 
-  it("everything reported and maxed → 100", () => {
-    const s = scoreAd({ ...strongCopy, likes: 50_000, comments: 4_000, shares: 4_000, clones: 50 });
-    expect(s.total).toBe(100);
-    for (const p of s.parts.filter((x) => x.key !== "branded-penalty")) expect(p.max).toBe({ longevity: 18, likes: 16, social: 8, clones: 16, craft: 42 }[p.key]);
+  it("every scoring part maxed → 90 (longevity 21.4 + clones 19 + craft 50)", () => {
+    const s = scoreAd({ ...strongCopy, clones: 50 });
+    expect(s.total).toBe(90);
+    const max = (k: string) => s.parts.find((p) => p.key === k)?.max;
+    expect([max("longevity"), max("clones"), max("craft")]).toEqual([21.4, 19, 50]);
+  });
+});
+
+describe("AI score — engagement never counts", () => {
+  const withEngagement = { ...strongCopy, clones: 7, likes: 1_240_000, comments: 48_300, shares: 9_100 };
+
+  it("likes, comments and shares change nothing: same total, tier, parts and explanation", () => {
+    expect(scoreAd(withEngagement)).toEqual(scoreAd({ ...strongCopy, clones: 7 }));
+    expect(scoreAd({ ...withEngagement, likes: 0, comments: 0, shares: 0 })).toEqual(scoreAd({ ...strongCopy, clones: 7 }));
   });
 
-  it("social is available when comments OR shares is reported", () => {
-    const s = scoreAd({ ...strongCopy, comments: 10, shares: null });
-    expect(s.parts.find((p) => p.key === "social")?.available).toBe(true);
+  it("emits no likes / comments & shares part, and the text never mentions them", () => {
+    const s = scoreAd(withEngagement);
+    expect(s.parts.map((p) => p.key)).toEqual(["longevity", "clones", "craft", "branded-penalty"]);
+    const text = [s.explanation, ...s.parts.flatMap((p) => [p.label, p.reason, ...p.examples])].join(" ");
+    expect(text).not.toMatch(/likes?|comments?|shares?/i);
+  });
+
+  it("the explanation only mentions redistribution for parts that really are unreported (clones)", () => {
+    expect(scoreAd({ ...strongCopy, clones: 7 }).explanation).not.toMatch(/not reported/);
+    expect(scoreAd(strongCopy).explanation).toMatch(/Clones is not reported/);
   });
 });
 

@@ -91,17 +91,36 @@ describe("AdDrawer · populated", () => {
 describe("AdDrawer · partial data", () => {
   it("shows disabled sections with reasons and 'Not reported', never collapsing", () => {
     renderDrawer(SPARSE.id);
-    expect(screen.getByText("No transcript: image ad.")).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Transcript" })).toBeNull(); // transcript lives inside the landing page section now
     expect(screen.getByText(/No landing page was captured for this ad/)).toBeInTheDocument();
-    expect(screen.getAllByText("Not reported").length).toBeGreaterThan(0); // engagement + score parts
+    // engagement is not an AI-score part: no row, and no "Not reported" for it inside the score
+    const score = screen.getByRole("region", { name: "AI score breakdown" });
+    expect(within(score).queryByText(/^(Likes|Comments & shares|Not reported)$/)).toBeNull();
     // the section frames are still there
-    expect(screen.getByRole("region", { name: "Engagement" })).toBeInTheDocument();
+    const engagement = screen.getByRole("region", { name: "Engagement" });
+    expect(within(engagement).getByText("No engagement data for this ad.")).toBeInTheDocument();
+    expect(within(engagement).getByRole("button", { name: /Engagement/ })).toBeDisabled();
+    expect(within(engagement).queryByText(/not reported/i)).toBeNull();
     expect(screen.getByText("AI score breakdown")).toBeInTheDocument();
   });
 
-  it("explains the points redistribution when a score part is missing", () => {
+  it("never mentions likes, comments or shares in the score parts, and adds no redistribution sentence for them", () => {
     renderDrawer(SPARSE.id);
-    expect(screen.getByText(/redistributed across the parts that are/)).toBeInTheDocument();
+    const parts = screen.getByRole("list", { name: "Score parts" });
+    expect(parts.textContent).not.toMatch(/likes?|comments?|shares?/i);
+    expect(screen.queryByText(/redistributed across the parts that are/)).toBeNull();
+  });
+});
+
+describe("AdDrawer · suggested actions", () => {
+  it("shows 1–3 rows under the AI score breakdown, each with a CTA", () => {
+    renderDrawer(FULL.id);
+    const section = screen.getByRole("region", { name: "AI score breakdown" });
+    const actions = within(section).getByRole("region", { name: "Suggested actions" });
+    const rows = within(actions).getAllByRole("listitem");
+    expect(rows.length).toBeGreaterThanOrEqual(1);
+    expect(rows.length).toBeLessThanOrEqual(3);
+    for (const row of rows) expect(within(row).getAllByRole("button").length).toBeGreaterThan(0);
   });
 });
 

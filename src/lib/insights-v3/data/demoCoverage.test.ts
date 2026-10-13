@@ -222,12 +222,11 @@ describe("demo coverage — what My Feeds shows (the real singleton)", () => {
     expect(feed.some((a) => isEngagementStandout(a, feed))).toBe(true);
   });
 
-  it("the AI score never contradicts the engagement an ad reports", () => {
+  it("the AI score never uses (or mentions) the engagement an ad reports", () => {
     for (const a of feed) {
-      const likes = a.aiScore.parts.find((p) => p.key === "likes");
-      const social = a.aiScore.parts.find((p) => p.key === "social");
-      expect(likes?.available, a.id).toBe(a.engagement.likes != null);
-      expect(social?.available, a.id).toBe(a.engagement.comments != null || a.engagement.shares != null);
+      expect(a.aiScore.parts.map((p) => p.key), a.id).not.toContain("likes");
+      expect(a.aiScore.parts.map((p) => p.key), a.id).not.toContain("social");
+      expect(a.aiScore.explanation, a.id).not.toMatch(/likes?|comments?|shares?/i);
     }
   });
 });

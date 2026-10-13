@@ -102,7 +102,7 @@ function DrawerBody({ ad }: { ad: Ad }) {
           <AdChipsRow ad={ad} isNewAd={isNew(ad, lastVisitAt)} winner={winner} engagementStandout={standout} />
           <AdMetricsSection ad={ad} />
           <AdStatsGrid ad={ad} />
-          <AiScorePanel score={ad.aiScore} />
+          <AiScorePanel score={ad.aiScore} ad={ad} />
           <CreativeBreakdown ad={ad} />
           <LandingPanel ad={ad} />
           <KeywordsPlatforms ad={ad} />

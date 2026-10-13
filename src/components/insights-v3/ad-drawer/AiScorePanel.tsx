@@ -1,12 +1,20 @@
 /**
  * AI score breakdown: total + tier, every part as a bar (value / max) with its
- * reason and examples, the redistribution note when a part isn't reported, and
- * the plain-English explanation. A score is only trusted if it shows its work.
+ * reason and examples, the redistribution note when a part isn't reported, the
+ * plain-English explanation and, when the ad is passed, the suggested actions.
+ * A score is only trusted if it shows its work.
+ *
+ * Engagement (likes, comments & shares) is NOT part of the AI score: those
+ * parts are never emitted by the scorer and are hidden here too, so no row, no
+ * "Not reported" and no redistribution sentence ever mentions them.
  */
-import type { AiScore, AiScorePart } from "@/lib/insights-v3/types";
+import type { Ad, AiScore, AiScorePart, AiScorePartKey } from "@/lib/insights-v3/types";
 import { cn } from "@/lib/utils";
 import { AiScoreBadge, OverlaySection } from "@/components/insights-v3/shared";
+import { AiScoreActions } from "./AiScoreActions";
 import { fmtPoints } from "./drawerUtils";
+
+const HIDDEN_PARTS: AiScorePartKey[] = ["likes", "social"];
 
 function PartRow({ part }: { part: AiScorePart }) {
   // The branded penalty subtracts points: no bar, just the deduction.
@@ -61,8 +69,9 @@ function PartRow({ part }: { part: AiScorePart }) {
   );
 }
 
-export function AiScorePanel({ score }: { score: AiScore }) {
-  const missing = score.parts.filter((p) => !p.available);
+export function AiScorePanel({ score, ad }: { score: AiScore; ad?: Ad }) {
+  const parts = score.parts.filter((p) => !HIDDEN_PARTS.includes(p.key));
+  const missing = parts.filter((p) => !p.available);
 
   return (
     <OverlaySection title="AI score breakdown" basedOn={1}>
@@ -77,7 +86,7 @@ export function AiScorePanel({ score }: { score: AiScore }) {
       {score.explanation && <p className="mt-2 text-sm leading-5 text-foreground/90">{score.explanation}</p>}
 
       <ul className="mt-3 grid grid-cols-1 gap-2 lg:grid-cols-2" aria-label="Score parts">
-        {score.parts.map((p) => (
+        {parts.map((p) => (
           <PartRow key={p.key} part={p} />
         ))}
       </ul>
@@ -88,6 +97,8 @@ export function AiScorePanel({ score }: { score: AiScore }) {
           {missing.length === 1 ? " its" : " their"} points were redistributed across the parts that are. The total stays on the same 100-point scale.
         </p>
       )}
+
+      {ad && <AiScoreActions ad={ad} />}
     </OverlaySection>
   );
 }
