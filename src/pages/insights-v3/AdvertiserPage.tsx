@@ -315,7 +315,7 @@ export default function AdvertiserPage() {
     listNode = isLp ? (
       <LandingPageTable rows={lpShown.slice(0, win.visible)} scope={scope} footer={footer} />
     ) : (
-      <AdvertiserTable kind={kind} rows={advShown.slice(0, win.visible)} scope={scope} footer={footer} />
+      <AdvertiserTable kind={kind} rows={advShown.slice(0, win.visible)} scope={scope} footer={footer} onPickScope={setScope} />
     );
   }
 

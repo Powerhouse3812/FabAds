@@ -1,7 +1,7 @@
 /**
  * LP & Offers list. One row = one landing page. Columns (spec): Page
- * (thumbnail, domain, title) · Offer · Funnel type · Ads (total + active) ·
- * Advertisers · Winners. A last Actions column carries Save + Download,
+ * (thumbnail, domain, title) · Offer · Funnel type · Ads (total + active, one
+ * line: "12 ads · ● 4 active") · Competitors · Winners. A last Actions column carries Save + Download,
  * because landing pages are elements too (Q9).
  */
 import { memo, type ReactNode } from "react";
@@ -11,6 +11,7 @@ import type { LandingPageRow } from "@/lib/insights-v3/selectors";
 import { ElementChip, Hint, NewBadge, TruncatedText, fmtInt, useDetailStack } from "../shared";
 import { SaveDownload } from "./ActionButtons";
 import { LpThumb } from "./parts";
+import { AdsTotalActive } from "./AdvertiserTable";
 import { LP_COLUMNS } from "./columns";
 import { Cell, ClickableRow, TableFrame } from "./tableParts";
 
@@ -60,11 +61,7 @@ const RowView = memo(function RowView({ row, scope }: { row: LandingPageRow; sco
         )}
       </Cell>
       <Cell>
-        <div className="font-mono text-sm font-semibold tabular-nums text-foreground">{fmtInt(row.adsTotal)}</div>
-        <div className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-          <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${row.adsActive > 0 ? "bg-success-text" : "bg-muted-foreground/50"}`} />
-          <span className="font-mono tabular-nums text-foreground">{fmtInt(row.adsActive)}</span> active
-        </div>
+        <AdsTotalActive total={row.adsTotal} active={row.adsActive} />
       </Cell>
       <Cell>
         <span className="font-mono text-sm font-semibold tabular-nums text-foreground">{fmtInt(row.advertiserCount)}</span>

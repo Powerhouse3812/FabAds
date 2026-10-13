@@ -144,10 +144,32 @@ export interface TrendSparkProps {
   width?: number;
   height?: number;
   className?: string;
+  /** "bars" (default) or a clean "line" with the latest point as a dot. */
+  variant?: "bars" | "line";
 }
 
-/** Mini bars for table rows. Plain SVG (cheap at 1000+ rows). Label + tooltip carry the unit. */
-export function TrendSpark({ series, width = 72, height = 24, className }: TrendSparkProps) {
+/** Mini line + area + latest dot (rounded joins). Flat dashed line when empty is handled by the caller. */
+function SparkLine({ pts, width, height, max }: { pts: TrendSeries["points"]; width: number; height: number; max: number }) {
+  const pad = 3;
+  const w = width - pad * 2;
+  const h = height - pad * 2;
+  const xy = pts.map((p, i) => [pad + (pts.length > 1 ? (i / (pts.length - 1)) * w : w / 2), pad + (1 - p.count / max) * h] as const);
+  const line = xy.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+  const [lx, ly] = xy[xy.length - 1];
+  const area = `M${xy[0][0].toFixed(1)},${height - pad} L${line.replace(/ /g, " L")} L${lx.toFixed(1)},${height - pad} Z`;
+  return (
+    <>
+      {xy.length > 1 && <path d={area} fill="hsl(var(--primary) / 0.14)" stroke="none" />}
+      {xy.length > 1 && (
+        <polyline points={line} fill="none" stroke="hsl(var(--primary))" strokeWidth="1.75" strokeLinejoin="round" strokeLinecap="round" />
+      )}
+      <circle cx={lx} cy={ly} r="2.5" fill="hsl(var(--primary))" />
+    </>
+  );
+}
+
+/** Mini bars (or line) for table rows. Plain SVG (cheap at 1000+ rows). Label + tooltip carry the unit. */
+export function TrendSpark({ series, width = 72, height = 24, className, variant = "bars" }: TrendSparkProps) {
   const empty = isEmpty(series);
   const pts = series.points;
   const max = Math.max(1, ...pts.map((p) => p.count));
@@ -181,6 +203,8 @@ export function TrendSpark({ series, width = 72, height = 24, className }: Trend
       >
         {empty ? (
           <line x1="0" x2={width} y1={height - 1} y2={height - 1} stroke="hsl(var(--border))" strokeWidth="1" strokeDasharray="3 3" />
+        ) : variant === "line" ? (
+          <SparkLine pts={pts} width={width} height={height} max={max} />
         ) : (
           pts.map((p, i) => {
             const h = Math.max(p.count > 0 ? 2 : 1, (p.count / max) * (height - 2));

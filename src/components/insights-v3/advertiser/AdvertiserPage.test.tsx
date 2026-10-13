@@ -70,13 +70,17 @@ describe("AdvertiserPage", () => {
     expect(heads).toEqual([
       "Domain",
       "Total + active ads",
-      "Winning ads + longest run",
+      "Winning ads",
+      "Longest run",
       "Launch trend",
-      "Top framework / hook / concept",
-      "Industry + category",
-      "Landing pages / offers",
+      "Industry",
+      "Category",
+      "Landing pages",
+      "Offers",
       "Actions",
     ]);
+    // The top framework / hook / concept column is gone (it lives in the detail overlay only).
+    expect(heads.some((h) => /Top framework/i.test(h ?? ""))).toBe(false);
     expect(within(table).getAllByRole("row").length).toBeGreaterThan(5);
     // Domain rows have Mark as competitor but no Follow.
     expect(within(table).getAllByRole("button", { name: /Mark .* as competitor|is marked as a competitor/ }).length).toBeGreaterThan(0);
@@ -90,6 +94,43 @@ describe("AdvertiserPage", () => {
     const table = screen.getByRole("table", { name: "Pages" });
     expect(within(table).getAllByRole("button", { name: /^(Follow|Unfollow) / }).length).toBeGreaterThan(0);
     expect(within(table).getAllByRole("button", { name: /competitor/i }).length).toBeGreaterThan(0);
+  });
+
+  it("Industry and Category are separate tag columns; clicking a tag sets the scope and does not open the row", () => {
+    renderAt("/industry-insights/advertisers");
+    const table = screen.getByRole("table", { name: "Domains" });
+    const indTags = within(table).getAllByRole("button", { name: /^Filter by industry / });
+    const catTags = within(table).getAllByRole("button", { name: /^Filter by category / });
+    expect(indTags.length).toBeGreaterThan(0);
+    expect(catTags.length).toBeGreaterThan(0);
+    // every tag carries the Search glyph (inside the tag) and shows at most 2 tags per cell
+    expect(indTags[0].querySelector("svg")).not.toBeNull();
+    const firstRow = within(table).getAllByRole("row")[1];
+    for (const cell of within(firstRow).getAllByRole("cell").slice(5, 7)) {
+      expect(within(cell).queryAllByRole("button").length).toBeLessThanOrEqual(2);
+    }
+    fireEvent.click(indTags[0]);
+    const where = screen.getByTestId("where").textContent ?? "";
+    expect(where).toMatch(/industry=/);
+    expect(where).not.toMatch(/detail=/); // stopPropagation: the row did not open
+    fireEvent.click(within(screen.getByRole("table", { name: "Domains" })).getAllByRole("button", { name: /^Filter by category / })[0]);
+    expect(screen.getByTestId("where").textContent).toMatch(/category=/);
+  });
+
+  it("Total + active ads is ONE line, winners / longest run and landing pages / offers are separate cells", () => {
+    renderAt("/industry-insights/advertisers");
+    const table = screen.getByRole("table", { name: "Domains" });
+    const cells = within(within(table).getAllByRole("row")[1]).getAllByRole("cell");
+    expect(cells.length).toBe(10);
+    expect(cells[1].textContent).toMatch(/^[\d,]+ads?·[\d,]+active$/); // "12 ads · ● 4 active" on one line
+    expect(cells[1].querySelectorAll("div").length).toBe(1);
+    expect(cells[2].textContent).toMatch(/^\d+$/); // winning ads: trophy + count only
+    expect(cells[3].textContent).toMatch(/\d|Start date unknown/); // longest run
+    expect(cells[7].textContent).toMatch(/^[\d,]+$/); // landing pages
+    expect(cells[8].textContent).toMatch(/^[\d,]+$/); // offers
+    // launch trend is a mini LINE chart now (polyline + latest dot), not bars
+    expect(cells[4].querySelector("polyline, line")).not.toBeNull();
+    expect(cells[4].querySelector("rect")).toBeNull();
   });
 
   it("LP & Offers tab shows the landing-page columns and sort", () => {
@@ -196,5 +237,13 @@ describe("AdvertiserPage", () => {
     const table = screen.getByRole("table", { name: "Landing pages" });
     expect(within(table).getByRole("columnheader", { name: "Actions" })).toBeInTheDocument();
     expect(within(table).getAllByRole("button", { name: /^Download landing page$/ }).length).toBeGreaterThan(0);
+  });
+
+  it("the LP table's ads cell is one line too", () => {
+    renderAt("/industry-insights/advertisers?tab=lp");
+    const table = screen.getByRole("table", { name: "Landing pages" });
+    const adsCell = within(within(table).getAllByRole("row")[1]).getAllByRole("cell")[3];
+    expect(adsCell.textContent).toMatch(/^[\d,]+ads?·[\d,]+active$/);
+    expect(adsCell.querySelectorAll("div").length).toBe(1);
   });
 });

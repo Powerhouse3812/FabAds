@@ -70,11 +70,21 @@ describe("AdvertiserDetail", () => {
   it("renders every section for a page, with Mark as competitor, Follow, Save and Download", () => {
     show(<AdvertiserDetail kind="page" id={topPage.id} nav={nav()} />);
     expect(screen.getByRole("dialog")).toBeInTheDocument();
-    for (const t of ["AI strategy summary", "Launch activity", "How they hook", "Winning ads", "Longest running ads"]) {
+    // Overview is the first tab: summary, industries + categories, launch line, suggested actions.
+    for (const t of ["AI strategy summary", "Launch activity", "Suggested actions"]) {
       expect(screen.getAllByText(t).length).toBeGreaterThan(0);
     }
-    expect(screen.getByText(/Landing pages: where the traffic goes/)).toBeInTheDocument();
-    expect(screen.getAllByText(/Based on/).length).toBeGreaterThan(3);
+    // The long listings live in their own tabs.
+    const tab = (name: RegExp) => fireEvent.click(screen.getByRole("tab", { name }));
+    tab(/^Creative elements/);
+    expect(screen.getByText("Hooks they run most")).toBeInTheDocument();
+    tab(/^Offers/);
+    expect(screen.getByRole("tabpanel", { name: "Offers" })).toBeInTheDocument();
+    tab(/^Landing pages/);
+    expect(screen.getByRole("tabpanel", { name: "Landing pages" })).toBeInTheDocument();
+    tab(/^Ads/);
+    expect(screen.getByRole("combobox", { name: "Sort" })).toHaveTextContent("Longest running");
+    expect(screen.getAllByText(/Based on/).length).toBeGreaterThan(0);
     expect(header().getByRole("button", { name: /competitor/i })).toBeInTheDocument();
     expect(header().getByRole("button", { name: /^(Follow|Unfollow) / })).toBeInTheDocument();
     expect(header().getByRole("button", { name: /Save this page to a board|Saved to/ })).toBeInTheDocument();

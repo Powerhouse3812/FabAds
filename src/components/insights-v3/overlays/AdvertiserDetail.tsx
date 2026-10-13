@@ -1,37 +1,48 @@
 /**
- * Advertiser detail overlay (Domain or Page). One scrolling view instead of
- * the live app's Analysis / Ads tabs, plus frameworks and concepts:
- *   1 AI summary + KPIs · 2 Launch activity · 3 How they hook ·
- *   4 Winning + longest running ads · 5 Landing pages (+ connected pages/domains).
- * Follows the scope bar; every block says how many ads it is built on.
+ * Competitor detail overlay (Domain or Page). Tabbed, because the full listing is long:
+ *   Overview (summary, KPIs, industries + categories, launch line, suggested actions) ·
+ *   Creative elements (what they run most) · Offers · Landing pages (merged with the
+ *   pages / domains behind them) · Ads (sortable, longest running first).
+ * Each tab is its own file under advertiser/detailTabs. Follows the scope bar; every block says how many ads it is built on.
  */
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ALL, type AdvertiserKind } from "@/lib/insights-v3/types";
-import { advertiserDetail, buildDownloads } from "@/lib/insights-v3/selectors";
+import { adsInScope, advertiserDetail, buildDownloads } from "@/lib/insights-v3/selectors";
 import { MODULE_NOW } from "@/lib/insights-v3/data";
 import { useBoardCountForItem } from "@/lib/insights-v3/stores";
-import {
-  DetailOverlay,
-  DisabledSection,
-  ElementActions,
-  NewBadge,
-  OverlaySection,
-  TrendBars,
-  TruncatedText,
-  useAdDrawer,
-} from "../shared";
+import { DetailOverlay, ElementActions, NewBadge, PageTabs, TruncatedText } from "../shared";
 import { FollowButton, MarkCompetitorButton } from "../advertiser/ActionButtons";
 import { joinTop } from "../advertiser/helpers";
-import { AdvertiserAvatar, MixBars, MixChip, MixGroup, OverlayEmpty } from "../advertiser/parts";
-import { AdStripSection, LandingPageList, SubGrid, SummaryAndKpis } from "../advertiser/overlayParts";
+import { AdvertiserAvatar, OverlayEmpty } from "../advertiser/parts";
+import type { DetailTabProps } from "../advertiser/detailTabs/types";
+import { OverviewTab } from "../advertiser/detailTabs/OverviewTab";
+import { CreativeTab } from "../advertiser/detailTabs/CreativeTab";
+import { OffersTab } from "../advertiser/detailTabs/OffersTab";
+import { LandingPagesTab } from "../advertiser/detailTabs/LandingPagesTab";
+import { AdsTab } from "../advertiser/detailTabs/AdsTab";
 import { useAdvertiserCtx } from "../advertiser/useAdvertiserCtx";
 import type { OverlayNav } from "./overlayNav";
 
+type DetailTab = "overview" | "creative" | "offers" | "landing" | "ads";
+const TAB_LABEL: Record<DetailTab, string> = {
+  overview: "Overview",
+  creative: "Creative elements",
+  offers: "Offers",
+  landing: "Landing pages",
+  ads: "Ads",
+};
+
 export function AdvertiserDetail({ kind, id, nav }: { kind: AdvertiserKind; id: string; nav: OverlayNav }) {
   const { scope, setScope, ctx, baseAds } = useAdvertiserCtx();
-  const drawer = useAdDrawer();
+  const [tab, setTab] = useState<DetailTab>("overview");
+  // A different competitor opened in the same overlay starts on Overview.
+  useEffect(() => setTab("overview"), [kind, id]);
   const typeLabel = kind === "page" ? "Page" : "Domain";
   const detail = useMemo(() => advertiserDetail(kind, id, baseAds, scope, ctx), [kind, id, baseAds, scope, ctx]);
+  const ownAds = useMemo(
+    () => adsInScope(baseAds, scope, ctx).filter((a) => (kind === "page" ? a.pageAdvertiserId === id : a.domainAdvertiserId === id)),
+    [baseAds, scope, ctx, kind, id],
+  );
   const savedCount = useBoardCountForItem({ type: kind, id });
   const frame = { open: nav.open, backLabel: nav.backLabel, onBack: nav.onBack, onClose: nav.onClose, typeLabel };
 
@@ -105,116 +116,32 @@ export function AdvertiserDetail({ kind, id, nav }: { kind: AdvertiserKind; id: 
     );
   }
 
-  const noun = kind === "page" ? "page" : "domain";
-  const lp = detail.landingPages;
-  const relatedType = kind === "page" ? "domain" : "page";
+  const ads = ownAds;
+  const offerCount = new Set(detail.landingPages.rows.map((r) => r.offerDomain).filter(Boolean)).size;
+  const creativeCount = detail.hooks.items.length + detail.angles.items.length + detail.frameworks.items.length + detail.concepts.items.length;
+  const tabProps: DetailTabProps = { kind, id, detail, ads, baseAds, scope, ctx };
 
   return (
     <DetailOverlay {...header}>
-      {/* 1 · AI summary + KPIs */}
-      <SummaryAndKpis summary={detail.summary} kpis={detail.kpis} basedOn={detail.basedOn} />
-
-      {/* 2 · Launch activity */}
-      <TrendBars
-        className="h-auto"
-        series={detail.launchActivity}
-        title="Launch activity"
-        basedOn={detail.launchActivity.basedOn}
-        emptyReason={`This ${noun} launched no ads in the picked period, so there is nothing to chart.`}
+      <PageTabs<DetailTab>
+        aria-label={`${typeLabel} sections`}
+        value={tab}
+        onChange={setTab}
+        tabs={[
+          { key: "overview", label: "Overview" },
+          { key: "creative", label: "Creative elements", count: creativeCount },
+          { key: "offers", label: "Offers", count: offerCount },
+          { key: "landing", label: "Landing pages", count: detail.landingPages.rows.length },
+          { key: "ads", label: "Ads", count: ads.length },
+        ]}
       />
-
-      {/* 3 · How they hook */}
-      <OverlaySection title="How they hook" basedOn={detail.basedOn}>
-        <div className="space-y-3">
-          <SubGrid>
-            <MixGroup title="Hooks" type="hook" mix={detail.hooks} emptyReason="No hook style could be identified in this competitor's ads." note="Hook styles, by how many ads use them." />
-            <MixGroup title="Angles" type="angle" mix={detail.angles} emptyReason="No angle could be identified in this competitor's ads." />
-            <MixGroup title="Frameworks" type="framework" mix={detail.frameworks} emptyReason="No framework could be identified in this competitor's ads." />
-            <MixGroup title="Concepts" type="concept" mix={detail.concepts} emptyReason="No concept could be identified in this competitor's ads." />
-          </SubGrid>
-          <p className="text-xs text-muted-foreground">
-            Counts show how many ads use each item. They show usage, not performance.
-          </p>
-          <SubGrid>
-            <MixBars
-              title="CTA mix"
-              unit="share of ads with a CTA button"
-              mix={detail.ctas}
-              emptyReason="None of this competitor's ads has a CTA button label."
-            />
-            <MixGroup
-              title="Keywords"
-              type={null}
-              interactive={false}
-              mix={detail.keywords}
-              emptyReason="No keywords could be extracted from this competitor's ads."
-            />
-          </SubGrid>
-          {detail.hookLines.items.length > 0 && (
-            <div className="rounded-lg border border-border bg-background/60 p-3">
-              <h4 className="text-xs font-semibold text-foreground">Opening lines</h4>
-              <ul className="mt-2 space-y-1.5">
-                {detail.hookLines.items.slice(0, 4).map((q) => (
-                  <li key={q.adId}>
-                    <button
-                      type="button"
-                      onClick={() => drawer.open(q.adId)}
-                      className="w-full rounded-md border-l-2 border-primary bg-primary/5 px-2.5 py-1.5 text-left text-xs italic text-foreground hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    >
-                      <TruncatedText text={`“${q.text}”`} lines={2} focusable={false} />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-      </OverlaySection>
-
-      {/* 4 · Winning + longest running ads */}
-      <AdStripSection
-        title="Winning ads"
-        adIds={detail.winners.adIds}
-        basedOn={detail.winners.basedOn}
-        emptyReason="No ad from this competitor passes the Winner rule yet (seen live, 14+ days running, 2+ clones)."
-      />
-      <AdStripSection
-        title="Longest running ads"
-        adIds={detail.longestRunning.adIds}
-        basedOn={detail.longestRunning.basedOn}
-        emptyReason="No ad here has a known start date, so run length can't be shown."
-      />
-
-      {/* 5 · Landing pages */}
-      <OverlaySection
-        title="Landing pages: where the traffic goes"
-        basedOn={lp.basedOn}
-        disabledReason={lp.rows.length === 0 ? "None of this competitor's ads in this scope send to a landing page we captured." : undefined}
-        minHeight={120}
-      >
-        <LandingPageList rows={lp.rows} />
-      </OverlaySection>
-
-      {detail.related.items.length > 0 ? (
-        <OverlaySection
-          title={kind === "page" ? "Domains these ads send to" : "Pages running ads to this domain"}
-          basedOn={detail.related.basedOn}
-        >
-          <ul className="flex flex-wrap gap-1.5">
-            {detail.related.items.slice(0, 12).map((it) => (
-              <li key={it.id} className="max-w-full">
-                <MixChip type={relatedType} item={it} />
-              </li>
-            ))}
-          </ul>
-        </OverlaySection>
-      ) : (
-        <DisabledSection
-          title={kind === "page" ? "Domains these ads send to" : "Pages running ads to this domain"}
-          reason={kind === "page" ? "None of this page's ads in scope have a landing-page domain." : "No page runs ads to this domain in this scope."}
-          minHeight={96}
-        />
-      )}
+      <div role="tabpanel" aria-label={TAB_LABEL[tab]} className="space-y-3 pt-3">
+        {tab === "overview" && <OverviewTab {...tabProps} />}
+        {tab === "creative" && <CreativeTab {...tabProps} />}
+        {tab === "offers" && <OffersTab {...tabProps} />}
+        {tab === "landing" && <LandingPagesTab {...tabProps} />}
+        {tab === "ads" && <AdsTab {...tabProps} />}
+      </div>
     </DetailOverlay>
   );
 }

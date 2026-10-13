@@ -1,63 +1,113 @@
 /**
- * Domain / Page list. Columns (spec, exactly): Name · Total + Active ads ·
- * Winning ads + Longest run · Launch trend · Top framework / hook / concept ·
- * Industry + Category · Landing pages / offers · Actions.
+ * Domain / Page list. Columns: Name · Total + active ads (one line) · Winning
+ * ads · Longest run · Launch trend (mini line) · Industry · Category · Landing
+ * pages · Offers · Actions. The top framework / hook / concept live only in
+ * the detail overlay.
  *
  * Compact rows: fixed column widths (see columns.ts) so every column fits a
- * 1440px screen with the sub-nav open; the three top elements share one cell
- * with small label-prefixed chips; Actions are icon-only buttons (tooltip +
+ * 1440px screen with the sub-nav open. Industry and Category are tags (max 2
+ * + a "+N" tooltip); clicking a tag applies it as the page scope, so each tag
+ * carries a small Search icon. Actions are icon-only buttons (tooltip +
  * aria-label) in a sticky-right column.
  */
 import { memo, type ReactNode } from "react";
-import { Trophy } from "lucide-react";
-import type { AdvertiserKind, ElementType, Scope } from "@/lib/insights-v3/types";
-import { formatDays, type AdvertiserRow } from "@/lib/insights-v3/selectors";
-import { ElementChip, Hint, NewBadge, TruncatedText, TrendSpark, fmtInt, fmtPct, useDetailStack } from "../shared";
+import { Search, Trophy } from "lucide-react";
+import type { AdvertiserKind, Scope } from "@/lib/insights-v3/types";
+import { formatDays, type AdvertiserRow, type RankedItem } from "@/lib/insights-v3/selectors";
+import { Hint, NewBadge, TruncatedText, TrendSpark, fmtInt, fmtPct, useDetailStack } from "../shared";
 import { FollowButton, MarkCompetitorButton, SaveDownload } from "./ActionButtons";
 import { advertiserColumns } from "./columns";
 import { AdvertiserAvatar } from "./parts";
 import { Cell, ClickableRow, TableFrame } from "./tableParts";
 
-const TOP_LABEL: Record<"framework" | "hook" | "concept", string> = {
-  framework: "Frame",
-  hook: "Hook",
-  concept: "Concept",
-};
+export type PickScope = (patch: { industry?: string; category?: string }) => void;
 
-function TopElement({ type, item }: { type: Extract<ElementType, "framework" | "hook" | "concept">; item: AdvertiserRow["topFramework"] }) {
+/** "12 ads · ● 4 active" on one line (shared with the LP & Offers table). */
+export function AdsTotalActive({ total, active }: { total: number; active: number }) {
   return (
-    <div className="flex min-w-0 items-center gap-1.5">
-      <span className="w-[42px] shrink-0 text-[10px] uppercase tracking-wide text-muted-foreground">{TOP_LABEL[type]}</span>
-      {item ? (
-        <ElementChip type={type} id={item.id} label={item.label} className="h-5 min-w-0 flex-1 justify-start text-[11px]" />
-      ) : (
-        <Hint content={`No ${type} could be identified in this competitor's ads in scope.`}>
-          <span tabIndex={0} className="text-xs text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-            —
-          </span>
-        </Hint>
+    <div className="flex items-center gap-1 whitespace-nowrap text-xs text-muted-foreground">
+      <span className="font-mono text-sm font-semibold tabular-nums text-foreground">{fmtInt(total)}</span>
+      <span>{total === 1 ? "ad" : "ads"}</span>
+      <span aria-hidden="true">·</span>
+      <span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${active > 0 ? "bg-success-text" : "bg-muted-foreground/50"}`} />
+      <span className="font-mono tabular-nums text-foreground">{fmtInt(active)}</span>
+      <span>active</span>
+    </div>
+  );
+}
+
+const TAG_BASE =
+  "inline-flex h-5 min-w-0 max-w-full items-center gap-1 rounded-full border border-border bg-muted/60 px-1.5 text-[11px] text-foreground";
+const TAG_FOCUS = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+
+/** Up to 2 clickable tags (click = search this industry / category) + a "+N" tag listing the rest. */
+function ScopeTags({
+  items,
+  group,
+  onPick,
+}: {
+  items: RankedItem[];
+  group: "industry" | "category";
+  onPick?: PickScope;
+}) {
+  if (items.length === 0) return <span className="text-xs text-muted-foreground">—</span>;
+  const rest = items.slice(2);
+  const tag = (it: RankedItem) =>
+    onPick ? (
+      <Hint key={it.id} content={`Filter by ${group} ${it.label}`}>
+        <button
+          type="button"
+          aria-label={`Filter by ${group} ${it.label}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onPick({ [group]: it.id });
+          }}
+          className={`${TAG_BASE} ${TAG_FOCUS} hover:border-primary/40 hover:bg-primary/10 hover:text-primary-text`}
+        >
+          <Search className="h-3 w-3 shrink-0 text-primary-text" aria-hidden="true" />
+          <span className="min-w-0 truncate">{it.label}</span>
+        </button>
+      </Hint>
+    ) : (
+      <span key={it.id} className={TAG_BASE}>
+        <span className="min-w-0 truncate">{it.label}</span>
+      </span>
+    );
+  // Tag 1 on its own line; tag 2 + "+N" share the second line, so every row has the same shape.
+  return (
+    <div className="flex min-w-0 flex-col items-start gap-1">
+      {tag(items[0])}
+      {items[1] && (
+        <div className="flex max-w-full min-w-0 items-center gap-1">
+          {tag(items[1])}
+          {rest.length > 0 && (
+            <Hint content={`${group === "industry" ? "More industries" : "More categories"}: ${rest.map((r) => r.label).join(", ")}`}>
+              <span
+                tabIndex={0}
+                aria-label={`${rest.length} more ${group === "industry" ? "industries" : "categories"}: ${rest.map((r) => r.label).join(", ")}`}
+                className={`${TAG_BASE} shrink-0 font-mono tabular-nums text-muted-foreground ${TAG_FOCUS}`}
+              >
+                +{rest.length}
+              </span>
+            </Hint>
+          )}
+        </div>
       )}
     </div>
   );
 }
 
-function SecondLine({ first, rest, noun }: { first: string | undefined; rest: string[]; noun: string }) {
-  if (!first) return <span className="text-muted-foreground">—</span>;
-  return (
-    <span className="flex min-w-0 items-center gap-1">
-      <TruncatedText text={first} className="min-w-0" />
-      {rest.length > 0 && (
-        <Hint content={`All ${noun}: ${[first, ...rest].join(", ")}`}>
-          <span tabIndex={0} className="shrink-0 rounded-full bg-muted px-1.5 font-mono text-[11px] tabular-nums text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-            +{rest.length}
-          </span>
-        </Hint>
-      )}
-    </span>
-  );
-}
-
-const RowView = memo(function RowView({ row, kind, scope }: { row: AdvertiserRow; kind: AdvertiserKind; scope: Scope }) {
+const RowView = memo(function RowView({
+  row,
+  kind,
+  scope,
+  onPickScope,
+}: {
+  row: AdvertiserRow;
+  kind: AdvertiserKind;
+  scope: Scope;
+  onPickScope?: PickScope;
+}) {
   const detail = useDetailStack();
   const open = () => detail.push({ kind: "advertiser", advertiserKind: kind, id: row.id });
   const change = row.changePct === null ? (row.launchesThisPeriod > 0 ? "New" : "—") : fmtPct(row.changePct);
@@ -81,56 +131,39 @@ const RowView = memo(function RowView({ row, kind, scope }: { row: AdvertiserRow
         </div>
       </Cell>
       <Cell>
-        <div className="font-mono text-sm font-semibold tabular-nums text-foreground">{fmtInt(row.totalAds)}</div>
-        <div className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-          <span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${row.activeAds > 0 ? "bg-success-text" : "bg-muted-foreground/50"}`} />
-          <span className="font-mono tabular-nums text-foreground">{fmtInt(row.activeAds)}</span> active
-        </div>
+        <AdsTotalActive total={row.totalAds} active={row.activeAds} />
       </Cell>
       <Cell>
         <div className="flex items-center gap-1 text-sm">
           <Trophy className={`h-3.5 w-3.5 shrink-0 ${row.winningAds > 0 ? "text-warning-text" : "text-muted-foreground"}`} aria-hidden="true" />
           <span className="font-mono font-semibold tabular-nums text-foreground">{fmtInt(row.winningAds)}</span>
-          <span className="truncate text-xs text-muted-foreground">{row.winningAds === 1 ? "winner" : "winners"}</span>
         </div>
-        <div className="mt-0.5 truncate text-xs text-muted-foreground">
-          {row.longestRunDays === null ? (
-            <span className="italic">Start date unknown</span>
-          ) : (
-            <>
-              Longest <span className="font-mono tabular-nums text-foreground">{formatDays(row.longestRunDays)}</span>
-            </>
-          )}
-        </div>
+      </Cell>
+      <Cell className="text-xs leading-tight">
+        {row.longestRunDays === null ? (
+          <span className="italic text-muted-foreground">Start date unknown</span>
+        ) : (
+          <span className="font-mono tabular-nums text-foreground">{formatDays(row.longestRunDays)}</span>
+        )}
       </Cell>
       <Cell>
         <div className="flex items-center gap-1.5">
-          <TrendSpark series={row.launchTrend} width={56} />
+          <TrendSpark series={row.launchTrend} variant="line" width={52} />
           <span className={`font-mono text-xs font-medium tabular-nums ${changeTone}`}>{change}</span>
         </div>
         <div className="mt-0.5 truncate text-[11px] text-muted-foreground">{row.launchTrend.unit}</div>
       </Cell>
       <Cell>
-        <div className="flex flex-col gap-0.5">
-          <TopElement type="framework" item={row.topFramework} />
-          <TopElement type="hook" item={row.topHook} />
-          <TopElement type="concept" item={row.topConcept} />
-        </div>
-      </Cell>
-      <Cell className="text-xs">
-        <SecondLine first={row.industries[0]?.label} rest={row.industries.slice(1).map((i) => i.label)} noun="industries" />
-        <div className="mt-0.5 text-muted-foreground">
-          <SecondLine first={row.categories[0]?.label} rest={row.categories.slice(1).map((i) => i.label)} noun="categories" />
-        </div>
+        <ScopeTags items={row.industries} group="industry" onPick={onPickScope} />
       </Cell>
       <Cell>
-        <div className="text-xs text-muted-foreground">
-          <span className="font-mono text-sm font-semibold tabular-nums text-foreground">{fmtInt(row.landingPageCount)}</span>{" "}
-          {row.landingPageCount === 1 ? "page" : "pages"}
-        </div>
-        <div className="mt-0.5 text-xs text-muted-foreground">
-          <span className="font-mono tabular-nums text-foreground">{fmtInt(row.offerCount)}</span> {row.offerCount === 1 ? "offer" : "offers"}
-        </div>
+        <ScopeTags items={row.categories} group="category" onPick={onPickScope} />
+      </Cell>
+      <Cell>
+        <span className="font-mono text-sm font-semibold tabular-nums text-foreground">{fmtInt(row.landingPageCount)}</span>
+      </Cell>
+      <Cell>
+        <span className="font-mono text-sm font-semibold tabular-nums text-foreground">{fmtInt(row.offerCount)}</span>
       </Cell>
       <Cell stickyRight>
         <div className="flex items-center gap-1" role="group" aria-label={`Actions for ${row.name}`}>
@@ -148,16 +181,19 @@ export function AdvertiserTable({
   rows,
   scope,
   footer,
+  onPickScope,
 }: {
   kind: AdvertiserKind;
   rows: AdvertiserRow[];
   scope: Scope;
   footer?: ReactNode;
+  /** Called when an Industry / Category tag is clicked (applies it as the page scope). */
+  onPickScope?: PickScope;
 }) {
   return (
     <TableFrame label={kind === "page" ? "Pages" : "Domains"} columns={advertiserColumns(kind)} footer={footer}>
       {rows.map((r) => (
-        <RowView key={r.id} row={r} kind={kind} scope={scope} />
+        <RowView key={r.id} row={r} kind={kind} scope={scope} onPickScope={onPickScope} />
       ))}
     </TableFrame>
   );
