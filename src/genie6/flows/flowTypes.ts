@@ -241,6 +241,25 @@ export interface FlowSourceRef {
    * locally as "Same script · Video Sage".
    */
   script?: string;
+  /**
+   * The source's own ANGLE / FRAMEWORK / CONCEPT, by label — what `use-angle`,
+   * `use-framework` and `use-concept` carry into the wizard (`flowInitialPatch`).
+   * Direct sibling of `hook` above, on the same terms: set ONLY where the
+   * source genuinely holds that element. Today that is Industry Insights V2
+   * (`iiv2:` refs), whose ads carry a per-ad analysis; every other builder
+   * leaves it undefined, so those three actions behave exactly as before for
+   * every pre-existing ref (they hand over `generationSource` and nothing else).
+   * Added 2026-10-10 because no existing field carried these three values:
+   * `trendAngle` is read only by the Trends actions, `sourceNote` is display-only.
+   */
+  elements?: { angle?: string; framework?: string; concept?: string };
+  /**
+   * Where the banner's exit link goes for THIS ref, overriding
+   * `FlowModule.modulePath`. Unset (every pre-existing ref) = the module's
+   * path, exactly as before. Set by Industry Insights V2 refs, which share the
+   * old module's key ("industry-insights") but must exit to the V2 module.
+   */
+  exitPath?: string;
   /** Campaign URLs only — the visible, editable extraction (§7.5). */
   extraction?: CampaignUrlExtraction;
 }

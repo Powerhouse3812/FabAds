@@ -1,8 +1,12 @@
-import { useState } from "react";
+import { Suspense, lazy, useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { SubItem } from "@/components/sidebar/modules";
 import { isSubItemActive } from "@/components/sidebar/modules";
+
+// Industry Insights V2 sub-nav counts. Lazy so the data layer only loads
+// when an item that declares `countKey` actually renders.
+const NavCount = lazy(() => import("@/components/insights-v3/nav/NavCount"));
 
 /**
  * SecondaryNavigationItem — a row in the light secondary panel.
@@ -95,6 +99,9 @@ export function SecondaryNavigationItem({
           />
         )}
         <span
+          // Long labels ("Creative Element Insights") truncate in the 200px
+          // panel; the native title keeps the full name reachable.
+          title={item.label.length > 20 ? item.label : undefined}
           className={cn(
             "flex-1 truncate text-[13px] leading-4",
             // Deprioritized stays italic per existing convention.
@@ -103,6 +110,11 @@ export function SecondaryNavigationItem({
         >
           {item.label}
         </span>
+        {item.countKey && (
+          <Suspense fallback={null}>
+            <NavCount countKey={item.countKey} />
+          </Suspense>
+        )}
         {item.badge && (
           <span className="shrink-0 rounded-full bg-foreground/[0.06] px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-foreground/65">
             {item.badge}

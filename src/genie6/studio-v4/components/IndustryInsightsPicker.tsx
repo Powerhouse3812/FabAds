@@ -8,6 +8,7 @@ import {
   type LibraryAsset,
 } from "@/mocks/shared/library-items";
 import { WINNER_ADS, type WinnerAd } from "@/mocks/shared/winnerAds";
+import { V2InsightsPickerSection } from "@/components/insights-v3/genie/V2InsightsPickerSection";
 
 /**
  * IndustryInsightsPicker — Step 4 right-rail body for "Industry Insights"
@@ -87,7 +88,73 @@ function productMatchesBrand(productId: string, brandId: string | null): boolean
   return brandId != null && productId.startsWith(`${brandId}-`);
 }
 
-export function IndustryInsightsPicker({
+/**
+ * Industry Insights V2 (2026-10-10, additive) — a two-way switch above the
+ * rail: "Pinned" is the original picker below, unchanged and still the
+ * default; "Industry Insights V2" attaches V2 ads AND creative elements
+ * (frameworks, hooks, angles, concepts) from the user's V2 boards, saved ads
+ * and the market. Both panes stay mounted so a selection survives a switch;
+ * both hand refs out through the same `onSave`.
+ */
+type PickerPane = "pinned" | "v2";
+
+const PICKER_PANES: { key: PickerPane; label: string }[] = [
+  { key: "pinned", label: "Pinned" },
+  { key: "v2", label: "Industry Insights V2" },
+];
+
+export function IndustryInsightsPicker(props: IndustryInsightsPickerProps) {
+  const [pane, setPane] = useState<PickerPane>("pinned");
+  return (
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+      <div role="tablist" aria-label="Industry Insights source" className="flex shrink-0 gap-1 border-b border-border px-3 pt-2">
+        {PICKER_PANES.map((p) => (
+          <button
+            key={p.key}
+            type="button"
+            role="tab"
+            id={`ii-picker-tab-${p.key}`}
+            aria-selected={pane === p.key}
+            aria-controls={`ii-picker-pane-${p.key}`}
+            onClick={() => setPane(p.key)}
+            className={cn(
+              "-mb-px inline-flex items-center border-b-2 px-2 pb-1.5 text-xs font-semibold transition-colors",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              pane === p.key
+                ? "border-primary text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+      {PICKER_PANES.map((p) => (
+        <div
+          key={p.key}
+          role="tabpanel"
+          id={`ii-picker-pane-${p.key}`}
+          aria-labelledby={`ii-picker-tab-${p.key}`}
+          hidden={pane !== p.key}
+          // `flex` would override the `hidden` attribute, so display is toggled
+          // by class. Children fill and shrink, so each pane's own body scrolls.
+          className={cn(
+            "min-h-0 flex-auto flex-col overflow-hidden [&>*]:min-h-0 [&>*]:flex-auto",
+            pane === p.key ? "flex" : "hidden",
+          )}
+        >
+          {p.key === "pinned" ? (
+            <PinnedInsightsPicker {...props} />
+          ) : (
+            <V2InsightsPickerSection onSave={props.onSave} onClose={props.onClose} />
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PinnedInsightsPicker({
   onSave,
   onClose,
   brandId = null,

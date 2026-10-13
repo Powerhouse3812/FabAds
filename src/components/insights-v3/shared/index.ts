@@ -1,0 +1,28 @@
+/** Industry Insights V2 — shared UI kit. Presentational; data comes in via props. */
+export * from "./url";
+export * from "./ScopeBar";
+export * from "./InsightsPageLayout";
+export * from "./PageTabs";
+export * from "./OverviewShell";
+export * from "./KpiRow";
+export * from "./AiSummaryBlock";
+export * from "./BasedOnNote";
+export * from "./TopTenGroup";
+export * from "./ViewMoreModal";
+export * from "./SelectedChips";
+export * from "./SortControl";
+export * from "./DisabledSection";
+export * from "./TrendBars";
+export * from "./DetailOverlay";
+export * from "./SaveButton";
+export * from "./DownloadButton";
+export * from "./ElementActions";
+export * from "./Badges";
+export * from "./ElementChip";
+export * from "./EngagementGroup";
+export * from "./TruncatedText";
+export { useOverflow } from "./useOverflow";
+export { triggerDownload, triggerDownloads, normalizeDownloads, type DownloadBuild } from "./download";
+export * from "./EmptyResults";
+export * from "./Hint";
+export { fmtInt, fmtPct, pluralize, bucketRangeLabel } from "./format";

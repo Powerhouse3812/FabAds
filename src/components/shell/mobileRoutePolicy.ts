@@ -74,6 +74,7 @@ export interface ResolvedMobilePolicy extends MobilePolicyRule {
 
 const TO_DASHBOARD = { label: "Go to Dashboard", to: "/dashboard" } as const;
 const TO_FEED = { label: "Browse My feeds", to: "/insights-v2/feed" } as const;
+const TO_V3_DISCOVER = { label: "Browse Discover", to: "/industry-insights/discover" } as const;
 const TO_CR_OVERVIEW = {
   label: "Open the Overview",
   to: "/reports/creative-v3",
@@ -137,6 +138,34 @@ export const MOBILE_ROUTE_POLICY: MobilePolicyRule[] = [
   // for a screen that doesn't exist on desktop either — "coming soon" is the
   // honest answer.
   { pattern: "/insights/saved", support: "full", label: "Saved Ads" },
+
+  /* ── Industry Insights V2 (fresh module, /industry-insights) ─────────────
+     Consume surfaces (feeds, Discover, saved, boards) are full: their grids
+     start at one column. Advertiser + Creative Element Insights are wide
+     tables with per-row trend charts → blocked, fallback to Discover.
+     Exact patterns only, no /industry-insights/* splat, so order is safe. */
+  { pattern: "/industry-insights", support: "full", label: "Industry Insights V2", notInNav: true },
+  { pattern: "/industry-insights/feeds", support: "full", label: "My Feeds" },
+  { pattern: "/industry-insights/discover", support: "full", label: "Discover" },
+  {
+    pattern: "/industry-insights/advertisers",
+    support: "blocked",
+    label: "Competitors",
+    reason:
+      "The competitor list pairs a wide multi-column table with a launch trend per row that needs real width to read.",
+    fallback: TO_V3_DISCOVER,
+  },
+  {
+    pattern: "/industry-insights/elements",
+    support: "blocked",
+    label: "Creative Element Insights",
+    reason:
+      "Element insights compare usage, winners and trends side by side in a wide table that needs real width to read.",
+    fallback: TO_V3_DISCOVER,
+  },
+  { pattern: "/industry-insights/saved", support: "full", label: "Saved Ads" },
+  { pattern: "/industry-insights/boards", support: "full", label: "Boards" },
+  { pattern: "/industry-insights/boards/:id", support: "full", label: "Board", notInNav: true },
 
   /* ── Reports ───────────────────────────────────────────────────────────
      Mobile gets a card list + a detail sheet, never the 12-column table.

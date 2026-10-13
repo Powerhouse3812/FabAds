@@ -45,6 +45,8 @@ import type {
   FlowSourceRef,
 } from "../flowTypes";
 import { DUMMY_ADS } from "@/lib/insights-dummy-data";
+import { getAd as getV2Ad, getElement as getV2Element } from "@/lib/insights-v3/data";
+import type { Ad as V2Ad } from "@/lib/insights-v3/types";
 import { getDummyVideos } from "@/lib/video-sage-dummy-data";
 import { getDataset, type ReportEntity } from "@/lib/reports-dummy-data";
 import { getTrendById } from "@/insights-trends/mocks/trendsData";
@@ -116,6 +118,110 @@ function insightsRef(ad: (typeof DUMMY_ADS)[number]): FlowSourceRef {
 
 function insightsRefs(): FlowSourceRef[] {
   return INSIGHTS_PICKS.map((i) => insightsRef(DUMMY_ADS[i]));
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Industry Insights V2 — the fresh module's own universe (src/lib/insights-v3).
+// Its ad ids ("ad-0001") are generic enough to collide with another module's
+// lazily-resolved ids, so every V2 ref is namespaced `iiv2:<adId>`. Same
+// module key as the old Industry Insights ("industry-insights"), so it inherits
+// that module's action list and competitorOwned:true — §7.2 forces the Step-2
+// highlight to the user's own default brand; `sourceBrandName` below is
+// display text only and never becomes an entity id.
+// V2 shows analysis on every ad (there is no "not analysed" state), so these
+// refs are always `analysed: true` — the analysis-gated use-* actions resolve.
+// ─────────────────────────────────────────────────────────────────────────
+
+export const V2_INSIGHTS_REF_PREFIX = "iiv2:";
+
+/** Separates the ad id from the handed element type: `iiv2:<adId>@<type>`. */
+const V2_ELEMENT_SEPARATOR = "@";
+type V2ElementType = "framework" | "hook" | "angle" | "concept";
+const V2_ELEMENT_LABEL: Record<V2ElementType, string> = {
+  framework: "Framework",
+  hook: "Hook",
+  angle: "Angle",
+  concept: "Concept",
+};
+
+/**
+ * The flow ref id for an Industry Insights V2 ad. Pass `element` when the
+ * user handed an ELEMENT (the ad is its top example): the ref then names that
+ * element first ("Hook · Callout — from "…""), so the banner's Reference says
+ * what was handed, not only which ad carried it.
+ */
+export function v2InsightsRefId(adId: string, element?: V2ElementType): string {
+  return `${V2_INSIGHTS_REF_PREFIX}${adId}${element ? `${V2_ELEMENT_SEPARATOR}${element}` : ""}`;
+}
+
+const V2_MEDIA_LABEL: Record<V2Ad["mediaKind"], string> = { image: "Image", video: "Video", carousel: "Carousel" };
+
+function v2DaysLive(n: number | null): string {
+  return n == null ? "Start date unknown" : `${n} day${n === 1 ? "" : "s"} live`;
+}
+
+/** The merged script: the transcript when there is one, else the beats' lines. */
+function v2Script(ad: V2Ad): string | undefined {
+  const t = ad.analysis.transcript?.trim();
+  if (t) return t;
+  const lines = (ad.analysis.beats ?? []).map((b) => b.text.trim()).filter(Boolean);
+  return lines.length ? lines.join("\n") : undefined;
+}
+
+function v2InsightsRef(ad: V2Ad, element?: V2ElementType): FlowSourceRef {
+  const an = ad.analysis;
+  const label = (type: "angle" | "framework" | "concept", id: string | null) =>
+    id ? (getV2Element(type, id)?.label ?? undefined) : undefined;
+  const elements = {
+    angle: label("angle", an.angle) ?? an.angleText ?? undefined,
+    framework: label("framework", an.framework),
+    concept: label("concept", an.concept),
+  };
+  // The handed element's own value on this ad (its top example), by label.
+  const elementId =
+    element === "hook" ? an.hookStyle
+    : element === "angle" ? an.angle
+    : element === "framework" ? an.framework
+    : element === "concept" ? an.concept
+    : null;
+  const elementLabel = element && elementId ? getV2Element(element, elementId)?.label : undefined;
+  const named = element && elementLabel ? `${V2_ELEMENT_LABEL[element]} · ${elementLabel}` : undefined;
+  return {
+    id: v2InsightsRefId(ad.id, element),
+    module: "industry-insights" as FlowModuleKey,
+    // Element first, so it survives the banner's truncation.
+    title: named ? `${named} — from "${ad.headline}"` : ad.headline,
+    subtitle: `${ad.pageName} · ${V2_MEDIA_LABEL[ad.mediaKind]} · ${v2DaysLive(ad.daysLive)}`,
+    thumbnail: ad.thumbnailUrl ?? undefined,
+    sourceBrandName: ad.pageName,
+    competitorOwned: true,
+    sourceNote: named ? `${named} — from Industry Insights V2` : "From Industry Insights V2",
+    exitPath: "/industry-insights/discover",
+    analysed: true,
+    sourceFormat: ad.mediaKind,
+    // Never likes / engagement — the V2 winner rule doesn't use them either.
+    metrics: [
+      { label: "Days live", value: ad.daysLive == null ? "Unknown" : String(ad.daysLive) },
+      { label: "Clones", value: String(ad.clones) },
+      { label: "AI score", value: String(ad.aiScore.total) },
+    ],
+    hook: an.hookText?.trim() || undefined,
+    script: v2Script(ad),
+    elements: elements.angle || elements.framework || elements.concept ? elements : undefined,
+  };
+}
+
+function resolveV2InsightsSource(id: string): FlowSourceRef | undefined {
+  if (!id.startsWith(V2_INSIGHTS_REF_PREFIX)) return undefined;
+  const [adId, element, ...rest] = id.slice(V2_INSIGHTS_REF_PREFIX.length).split(V2_ELEMENT_SEPARATOR);
+  // A hand-edited suffix that isn't one of the four element types, or names an
+  // element this ad doesn't carry, degrades to "no such ref" — never throws.
+  if (rest.length > 0 || (element !== undefined && !Object.prototype.hasOwnProperty.call(V2_ELEMENT_LABEL, element))) return undefined;
+  const ad = getV2Ad(adId);
+  if (!ad) return undefined;
+  const ref = v2InsightsRef(ad, element as V2ElementType | undefined);
+  if (element !== undefined && ref.title === ad.headline) return undefined;
+  return ref;
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -816,6 +922,12 @@ const lazyCache = new Map<string, FlowSourceRef | undefined>();
 function resolveLazySource(id: string): FlowSourceRef | undefined {
   if (lazyCache.has(id)) return lazyCache.get(id);
   let ref: FlowSourceRef | undefined;
+  // `iiv2:` ids are namespaced, so this branch can never shadow another module.
+  if (id.startsWith(V2_INSIGHTS_REF_PREFIX)) {
+    ref = resolveV2InsightsSource(id);
+    lazyCache.set(id, ref);
+    return ref;
+  }
   const ad = DUMMY_ADS.find((a) => a.id === id || a.adId === id);
   if (ad) ref = insightsRef(ad);
   if (!ref) ref = resolveSampleOutputSource(id);
@@ -834,7 +946,7 @@ function resolveLazySource(id: string): FlowSourceRef | undefined {
   // Real Supabase campaign-url rows: an unrecognised id gets an empty,
   // editable extraction. §7.5: "shown and editable … the user must see and
   // fix it rather than discover the error in the output."
-  if (!ref && (id.startsWith("cu-") || (id.match(/^[a-f0-9\-]{36}$/) && id.includes("-")))) {
+  if (!ref && (id.startsWith("cu-") || (id.match(/^[a-f0-9-]{36}$/) && id.includes("-")))) {
     ref = {
       id,
       module: "campaign-urls" as FlowModuleKey,

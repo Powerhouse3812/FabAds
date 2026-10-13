@@ -86,6 +86,9 @@ function AppLayoutInner() {
   const { pathname } = useLocation();
   const isGenie6Route = pathname.startsWith("/iq/genie6");
   const isInsightsV2Route = pathname.startsWith("/insights-v2");
+  // Industry Insights V2 (fresh module, /industry-insights) owns its scroll
+  // region the same way: sticky scope bar + compact-on-scroll header.
+  const isIndustryInsightsV3Route = pathname.startsWith("/industry-insights");
   const isLaunchV2Route = pathname.startsWith("/launchv2");
   const isCreativeLibraryRoute = pathname.startsWith("/iq/creative-library");
   const isDashboardVariantsRoute = pathname.startsWith("/dashboard-variants");
@@ -110,6 +113,7 @@ function AppLayoutInner() {
   const ownsLayout =
     isGenie6Route ||
     isInsightsV2Route ||
+    isIndustryInsightsV3Route ||
     isLaunchV2Route ||
     isCreativeLibraryRoute ||
     isDashboardVariantsRoute ||

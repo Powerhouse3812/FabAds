@@ -9,6 +9,7 @@ import {
   Lightbulb,
   Sparkles, Receipt,
   Compass, Eye, Layers, Rss, TrendingUp,
+  Building2, Shapes,
   Plus,
   // Genie 2.0: Other Flows sub-nav entry. GitMerge reads as "many sources
   // converge here", which is exactly what Other Flows is; Workflow is
@@ -39,6 +40,12 @@ export interface SubItem {
    * deprioritized item in a flat sub-items list.
    */
   deprioritized?: boolean;
+  /**
+   * Live count chip after the label (Industry Insights V2: "counts on every
+   * menu item"). The key is resolved by a lazily loaded component, so a
+   * count never costs anything for modules that don't use it.
+   */
+  countKey?: string;
 }
 
 export interface SectionGroup {
@@ -178,6 +185,22 @@ export const MODULES: ModuleDef[] = [
       { label: "Saved Ads", path: "/insights/saved",       icon: Bookmark },
       { label: "Competitor", path: "/insights/competitors", icon: Eye },
       { label: "Board",     path: "/insights/boards",      icon: Layers },
+    ],
+  },
+  {
+    // Industry Insights V2 — fresh build to docs/industry-insights (PRD + page
+    // specs, Oct 2026). Own namespace /industry-insights; the module above is
+    // deliberately left untouched (Maalik, 2026-10-10), same precedent as
+    // launchv2. No Home / Trends / Domains / Competitors items: domains live in
+    // Advertiser, competitor data shows in My Feeds.
+    key: "insights-v3", label: "Industry Insights V2", icon: Telescope, badge: "V2",
+    subItems: [
+      { label: "My Feeds",                  path: "/industry-insights/feeds",       icon: Rss, countKey: "feeds" },
+      { label: "Discover",                  path: "/industry-insights/discover",    icon: Compass, countKey: "discover" },
+      { label: "Competitors",               path: "/industry-insights/advertisers", icon: Building2, countKey: "advertisers" },
+      { label: "Creative Element Insights", path: "/industry-insights/elements",    icon: Shapes, countKey: "elements" },
+      { label: "Saved Ads",                 path: "/industry-insights/saved",       icon: Bookmark, countKey: "saved" },
+      { label: "Boards",                    path: "/industry-insights/boards",      icon: Layers, countKey: "boards" },
     ],
   },
   {
@@ -355,6 +378,7 @@ export const MODULE_GROUPS: Record<string, ModuleGroup> = {
   "dashboard-variants": "RUN",
   reports: "RUN",
   insights: "RUN",
+  "insights-v3": "RUN",
   launchv2: "RUN",
   automation: "RUN",
   // CREATE

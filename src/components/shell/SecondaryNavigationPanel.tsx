@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Suspense, lazy, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   ChevronDown,
@@ -21,6 +21,9 @@ import { useGenie6Theme, type GenieVariant } from "@/genie6/hooks/useGenie6Theme
 import { SecondaryNavigationItem } from "./SecondaryNavigationItem";
 import { setSubNavCollapsed } from "./useSubNavCollapsed";
 import { InsightsPinnedBoardsAddon } from "./InsightsPinnedBoardsAddon";
+// Industry Insights V2 keeps its own pinned-boards strip (its boards are a
+// separate store from the old module's). Lazy: loads only on V2 routes.
+const InsightsV3PinnedBoards = lazy(() => import("@/components/insights-v3/boards/PinnedBoardsNav"));
 import { InsightsSetupCard } from "./InsightsSetupCard";
 import { useInsightsSetupState } from "@/lib/insights-setup";
 import { GenieCreditsAddonCard } from "./GenieCreditsAddonCard";
@@ -73,6 +76,7 @@ export function SecondaryNavigationPanel() {
   };
   const isGenie = activeMod.key === "genie";
   const isInsights = activeMod.key === "insights";
+  const isInsightsV3 = activeMod.key === "insights-v3";
   const isLaunch = activeMod.key === "launch";
   const isReports = activeMod.key === "reports";
   const isCatalogue = activeMod.key === "catalogue";
@@ -166,6 +170,11 @@ export function SecondaryNavigationPanel() {
             boards quick-access strip (max 5, localStorage-backed). Hidden
             entirely when nothing is pinned. */}
         {isInsights && <InsightsPinnedBoardsAddon />}
+        {isInsightsV3 && (
+          <Suspense fallback={null}>
+            <InsightsV3PinnedBoards />
+          </Suspense>
+        )}
       </div>
 
       {/* Module footer addons — pinned outside the scrollable body so

@@ -27,6 +27,7 @@ import Genie5AISetupPage from "@/pages/iq/Genie5AISetupPage";
 import { genie6Routes } from "@/genie6/routes";
 import { launch2Routes } from "@/launch2/routes";
 import { launchV2Routes } from "@/launchv2/routes";
+import { insightsV3Routes } from "@/pages/insights-v3/routes";
 // Creative Report 2.0 is a FROZEN fork (snapshot of b5f1cda) living in its own
 // directory so 3.0 work can never change it. The two versions are mounted side
 // by side here and share no screen components.
@@ -209,6 +210,8 @@ const App = () => (
 
                 {/* Launch v2 — fresh redesign; v1 + launch2 untouched */}
                 {launchV2Routes}
+                {/* Industry Insights V2 — fresh module, own namespace; old /insights/* untouched. */}
+                {insightsV3Routes}
 
                 {/* Dashboard variants — 4-way visual showcase of the AI-plan
                     dashboard (Editorial / Terminal / Tonal / Classic Dark),
